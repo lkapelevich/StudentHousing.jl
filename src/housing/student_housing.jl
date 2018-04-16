@@ -1,24 +1,24 @@
-using StatsBase
+using StatsBase, Distributions
 
+# House data
 struct House
     nbedrooms::Int
     nbathrooms::Int
     rent::Float64
     area::Float64
 end
-
 maintenance(h::House) = h.rent
 
+# Market data
 NBEDROOMS_RANGE = collect(1:7)
-NBDROOMS_FREQCY = WeightVec([0.0078125 0.5  0.25  0.125  0.0625  0.03125  0.015625])
+NBDROOMS_FREQCY = WeightVec([0.0078125, 0.5,  0.25,  0.125,  0.0625,  0.03125,  0.015625])
 NBATHROOMS_RANGE = collect(1:5)
-NBATHROOMS_FREQCY = WeightVec([0.5  0.25  0.125  0.0625  0.03125  0.015625  0.015625])
+NBATHROOMS_FREQCY = WeightVec([0.5,  0.25,  0.125,  0.0625,  0.0625])
 BUDGET = 1e7
 
 function avg_area(nbedrooms::Int, nbathrooms::Int)
     nbedrooms * 360 + nbathrooms * 15
 end
-
 function avg_rent(nbedrooms::Int, nbathrooms::Int, area::Float64)
     area * 1.4 + nbathrooms * 50 - nbedrooms * 10
 end
@@ -46,6 +46,7 @@ end
 all_possible_characteristics = Characteristic[]
 for nbed in NBEDROOMS_RANGE
     for nbath in NBATHROOMS_RANGE
+        nbath > nbed && continue
         for p in 1:length(PRICE_RANGES_PP)
             for a in 1:length(AREA_RANGES)
                 push!(all_possible_characteristics, Characteristic(nbed, nbath, p, a))
@@ -79,19 +80,27 @@ end
 # - bundle preference patterns together and refine as we go
 # -
 
-# One stage
+# ==============================================================================
+# One stage, small version of this
+
+# Suppose there are only 10 possible combinations of characteristics that describe a house
 small_c = 10
+# All possible preference patterns
 npatterns = 2^small_c
 # Totally don't need to write this explictly but we'll do it anyway
 string2vector(s::String) = parse.(split(s, ""))
 # The i^th possible pattern, there are 2^C of them in total
 explicit_pattern(i::Int) = string2vector(bin(i-1, small_c))
 
-function house_fits_pattern(house::House, pattern::Int)
-    p = explicit_pattern(i)
-    for characteristic in p
-        characteristic == 0 && continue
-        house_fits_characteristic(house, characteristic) && return true
+function house_fits_pattern(house::House, p::Int)
+    # Get the explicit pattern
+    pattern = explicit_pattern(p)
+    # For every characteristic possible
+    for (i, c) in enumerate(pattern)
+        # Does this person's preference pattern allow this characteristic?
+        c == 0 && continue
+        # Check if the house fits the characteristic also
+        house_fits_characteristic(house, all_possible_characteristics[i]) && return true
     end
     false
 end
@@ -99,35 +108,48 @@ house_fits_pattern(i::Int, p::Int) = house_fits_pattern(houses[i], p)
 
 # Number of houses needed by preference pattern p should be embedded in preference pattern p somehow
 # ignore for now
+
+
 beds_needed(p::Int) = 1.0
 beds_avail(i::Int) = houses[i].nbedrooms
 maintenance(i::Int) = maintenance(houses[i])
 
-using JuMP, Gurobi
-demand = round.(rand(2^npatterns) * 100)
-m = Model(sover = GurobiSolver(OutputFlag=0))
-@variables(m, begin
-    shortage >= 0,
-    investment[1:nhouses], Bin
-    assignment[1:nhouses, 1:npatterns], Int
-end)
 
-@constraints(m, begin
-    shortage == sum(demand[p] - sum(assignment[i, p] for i in nhouses) for p in patterns)
-    [i = 1:nhouses, p = 1:npatterns], assignment[i, p] <= investment[i]
-    [i = 1:nhouses], sum(house_fits_pattern(i, p) * assignment[i, p] * beds_needed(p) for p in patterns) <= invested[i] * beds_avail(i)
-    sum(invested[i] * maintenance(i) for i = 1:nhouses) <= BUDGET
-end)
+# ==============================================================================
+# One stage, small version model
+using JuMP, Gurobi, CPLEX
 
-@objective(m, shortage)
+demand = round.(rand(npatterns) * 100)
 
-# Small scale two-stage
-using JuMP, Gurobi
-m = Model(sover = GurobiSolver(OutputFlag=0))
-@variables(m, begin
-    shortage >= 0, Int
-end)
+function build_small_one_stage()
+    m = Model(solver = GurobiSolver(OutputFlag=0))
+    # m = Model(solver = CplexSolver(CPX_PARAM_SCRIND = 0, CPX_PARAM_MIPDISPLAY=0))
+    @variables(m, begin
+        shortage >= 0
+        investment[1:nhouses], Bin
+        assignment[1:nhouses, 1:npatterns], Int
+    end)
 
-# Small scale multistage => try with SDDiP
-using SDDP, SDDiP, JuMP, Gurobi
-sddpm = Model(stages = )
+    @constraints(m, begin
+        shortage == sum(demand[p] - sum(assignment[i, p] for i = 1:nhouses) for p = 1:npatterns)
+        [i = 1:nhouses], sum(house_fits_pattern(i, p) * assignment[i, p] * beds_needed(p) for  p = 1:npatterns) <= investment[i] * beds_avail(i)
+        sum(investment[i] * maintenance(i) for i = 1:nhouses) <= BUDGET
+    end)
+
+    @objective(m, Min, shortage)
+    m
+end
+
+m = build_small_one_stage()
+solve(m)
+
+# # Small scale two-stage
+# using JuMP, Gurobi
+# m = Model(sover = GurobiSolver(OutputFlag=0))
+# @variables(m, begin
+#     shortage >= 0, Int
+# end)
+#
+# # Small scale multistage => try with SDDiP
+# using SDDP, SDDiP, JuMP, Gurobi
+# sddpm = Model(stages = )
