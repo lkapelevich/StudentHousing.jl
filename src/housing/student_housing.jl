@@ -67,15 +67,7 @@ solve(m_multi_stage, max_iterations = 8)
 #  StudentHousing.Characteristic(2, 2, 1, 1)
 #  StudentHousing.Characteristic(2, 2, 2, 1)
 
-a = zeros(2, 64)
-for i = 1:2
-    for p = 1:64
-        a[i,p] = Int(StudentHousing.house_fits_pattern(i, p, problem_data))
-    end
-end
-@assert 11 in find(a[1,:] .≈ 1)
-@assert 15 in find(a[1,:] .≈ 1)
-@assert 19 in find(a[2,:] .≈ 1)
+
 
 for p = 1:64
     for i = 1:2
@@ -89,7 +81,5 @@ StudentHousing.explicit_pattern(11, 6)
 StudentHousing.explicit_pattern(15, 6)
 StudentHousing.explicit_pattern(19, 6)
 
-@assert StudentHousing.house_fits_characteristic(problem_data.houses[2], problem_data.all_characteristics[1], problem_data.market_data)
-@assert StudentHousing.house_fits_characteristic(problem_data.houses[2], problem_data.all_characteristics[2], problem_data.market_data)
 
 # TODO: what to do when there is a choice of rent for a student
