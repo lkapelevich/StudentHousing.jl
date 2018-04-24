@@ -7,7 +7,8 @@ string2vector(s::String) = parse.(split(s, ""))
 explicit_pattern(i::Int, c::Int) = string2vector(bin(i-1, c))
 beds_avail(i::Int, houses::Vector{House}) = houses[i].nbedrooms
 maintenance(i::Int, houses::Vector{House}) = maintenance(houses[i])
-house_fits_pattern(i::Int, p::Int, houses::Vector{House}, ncharacteristics) = house_fits_pattern(houses[i], p, ncharacteristics)
+get_ncharacteristics(d::StudentHousingData) = length(d.all_characteristics)
+get_npatterns(d::StudentHousingData) = 2^get_ncharacteristics(d)
 
 """
     house_fits_pattern(house::House, p::Int, C::Int)
@@ -16,7 +17,10 @@ Returns a Boolean denoting whether someone with preference pattern `p` would
 be willing to live in `house`. `C` is the number of distinct characteristics in
 our data.
 """
-function house_fits_pattern(house::House, p::Int, C::Int)
+function house_fits_pattern(i::Int, p::Int, d::StudentHousingData)
+    C = get_ncharacteristics(d)
+    # The house we are concerened with
+    h = d.houses[i]
     # Get the explicit pattern
     pattern = explicit_pattern(p, C)
     # For every characteristic possible
@@ -24,7 +28,7 @@ function house_fits_pattern(house::House, p::Int, C::Int)
         # Does this person's preference pattern allow this characteristic?
         c == 0 && continue
         # Check if the house fits the characteristic also
-        house_fits_characteristic(house, all_possible_characteristics[i]) && return true
+        house_fits_characteristic(h, d.all_characteristics[i], d.market_data) && return true
     end
     false
 end
@@ -35,24 +39,27 @@ beds_needed(p::Int) = 1.0
 
 function onestagemodel(d::StudentHousingData)
 
-    ncharacteristics, nhouses = d.ncharacteristics, d.nhouses
-    npatterns = 2^ncharacteristics
-    houses = gethouses(nhouses)
+    npatterns = get_npatterns(d)
+    houses = d.houses
+    nhouses = length(d.houses)
 
-    demand = round.(rand(npatterns) * 70) # move this to data part
+    demand = round.(rand(npatterns) * 1) # move this to data part
+
+    println(houses)
+    # println(demand)
 
     m = Model(solver = GurobiSolver(OutputFlag=0))
     # m = Model(solver = CplexSolver(CPX_PARAM_SCRIND = 0, CPX_PARAM_MIPDISPLAY=0))
     @variables(m, begin
         shortage[1:npatterns] >= 0
         investment[1:nhouses], Bin
-        assignment[1:nhouses, 1:npatterns], Int
+        assignment[1:nhouses, 1:npatterns] >= 0, Int
     end)
 
     @constraints(m, begin
         [p = 1:npatterns], shortage[p] == demand[p] - sum(assignment[i, p] for i = 1:nhouses)
-        [i = 1:nhouses, p = 1:npatterns], assignment[i, p] * beds_needed(p) <= investment[i] * beds_avail(i, houses)
-        [i = 1:nhouses], sum(house_fits_pattern(i, p, houses, ncharacteristics) * assignment[i, p] * beds_needed(p) for  p = 1:npatterns) <= investment[i] * beds_avail(i, houses)
+        [i = 1:nhouses, p = 1:npatterns], assignment[i, p] * beds_needed(p) <= house_fits_pattern(i, p, d) * investment[i] * beds_avail(i, houses)
+        [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p) for  p = 1:npatterns) <= investment[i] * beds_avail(i, houses)
         sum(investment[i] * maintenance(i, houses) for i = 1:nhouses) <= d.budget
     end)
 
@@ -67,19 +74,21 @@ end
 # Multistage work in progress
 function multistagemodel(d::StudentHousingData)
 
-    ncharacteristics, nhouses = d.ncharacteristics, d.nhouses
-    npatterns = 2^ncharacteristics
-    houses = gethouses(nhouses)
+    nstages = 2
+
+    npatterns = get_npatterns(d)
+    houses = d.houses
+    nhouses = length(d.houses)
 
     # This will move into the data part. Make random demand.
     nnoises = 10
-    demands = Array{Float64,2}(npatterns, nnoises)
+    demands = Array{Float64,3}(npatterns, nnoises, nstages)
     for n in 1:nnoises
-        demands[:, n] .= round.(rand(npatterns) * 500)
+        demands[:, n, :] .= round.(rand(npatterns, nstages) * 500)
     end
-    upperbound = sum(sum(demands))
+    upperbound = sum(sum(sum(demands)))
 
-    m = SDDPModel(stages = 2,
+    m = SDDPModel(stages = nstages,
             objective_bound = 0.0,
             sense=:Min,
             solver = GurobiSolver(OutputFlag=0)) do sp, stage
@@ -89,30 +98,32 @@ function multistagemodel(d::StudentHousingData)
 
         @variables(sp, begin
             shortage[1:npatterns] >= 0
-            assignment[1:nhouses, 1:npatterns], Int
+            assignment[1:nhouses, 1:npatterns] >= 0, Int
         end)
 
-        for p = 1:npatterns # TODO better warning than JuMP's modifying range constraints unsupported
-            @rhsnoise(sp, D = demands[p, :],
-                shortage[p] + sum(assignment[i, p] for i = 1:nhouses) <= D)
-            @rhsnoise(sp, D = demands[p, :],
-                shortage[p] + sum(assignment[i, p] for i = 1:nhouses) >= D)
+        if stage == 1
+            @constraint(sp, [p = 1:npatterns], shortage[p] + sum(assignment[i, p] for i = 1:nhouses) <= demands[p, 1, 1])
+        else
+            for p = 1:npatterns # TODO better warning than JuMP's modifying range constraints unsupported
+                @rhsnoise(sp, D = demands[p, :, stage],
+                    shortage[p] + sum(assignment[i, p] for i = 1:nhouses) <= D)
+                @rhsnoise(sp, D = demands[p, :, stage],
+                    shortage[p] + sum(assignment[i, p] for i = 1:nhouses) >= D)
+            end
         end
 
         @constraints(sp, begin
             # Can't uninvest
             investment0 .<= investment
             # Only legal assignments
-            [i = 1:nhouses, p = 1:npatterns], assignment[i, p] * beds_needed(p) <= investment[i] * beds_avail(i, houses)
-            [i = 1:nhouses], sum(house_fits_pattern(i, p, houses, ncharacteristics) * assignment[i, p] * beds_needed(p) for  p = 1:npatterns) <= investment[i] * beds_avail(i, houses)
+            [i = 1:nhouses, p = 1:npatterns], assignment[i, p] * beds_needed(p) <= house_fits_pattern(i, p, d) * investment[i] * beds_avail(i, houses)
+            [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p) for  p = 1:npatterns) <= investment[i] * beds_avail(i, houses)
             # Budget constraint
             sum(investment[i] * maintenance(i, houses) for i = 1:nhouses) <= d.budget
         end)
 
         # Minimize all unmet demand
         @stageobjective(sp, sum(shortage))
-
-        print(sp)
 
         setSDDiPsolver!(sp, method=SubgradientMethod(upperbound))
     end

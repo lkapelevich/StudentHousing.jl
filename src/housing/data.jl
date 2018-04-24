@@ -10,15 +10,27 @@ struct House
     area::Float64
 end
 
-# Market data
-NBEDROOMS_RANGE = collect(1:7)
-NBDROOMS_FREQCY = WeightVec([0.0078125, 0.5,  0.25,  0.125,  0.0625,  0.03125,  0.015625])
-NBATHROOMS_RANGE = collect(1:5)
-NBATHROOMS_FREQCY = WeightVec([0.5,  0.25,  0.125,  0.0625,  0.0625])
-PRICE_RANGES_PP =
-    [800 900 1000 1100 1200 1300 1400 1500 1600]
-AREA_RANGES =
-    [750 800 850 900 950 1000 1100 1200 1300 1400]
+"""
+Describes the range of values we are dealing with.
+"""
+struct MarketData
+    bedrooms_range::Vector{Int}
+    bedrooms_frequencye::Weights
+    bathrooms_range::Vector{Int}
+    bathrooms_frequency::Weights
+    prices_range_pp::Vector{Float64}
+    area_range::Vector{Float64}
+end
+
+# # Market data
+# NBEDROOMS_RANGE = collect(1:7)
+# NBDROOMS_FREQCY = WeightVec([0.0078125, 0.5,  0.25,  0.125,  0.0625,  0.03125,  0.015625])
+# NBATHROOMS_RANGE = collect(1:5)
+# NBATHROOMS_FREQCY = WeightVec([0.5,  0.25,  0.125,  0.0625,  0.0625])
+# PRICE_RANGES_PP =
+#     [800 1000 1300 1500 1800 2200]
+# AREA_RANGES =
+#     [700  800 900 1000 1200 1400]
 
 """
     maintenance(h::House)
@@ -31,7 +43,7 @@ maintenance(h::House) = h.rent / 10
 Average square footage of a house with a given number of bedrooms.
 """
 function avg_area(nbedrooms::Int, nbathrooms::Int)
-    nbedrooms * 360 + nbathrooms * 15
+    nbedrooms * 300 + nbathrooms * 15
 end
 """
 Average rent we expect for a house with a given number of bedrooms, bathrooms,
@@ -59,29 +71,32 @@ end
 Returns a boolean depending on whether `house` fits a description given by
 `characteristic`.
 """
-function house_fits_characteristic(house::House, characteristic::Characteristic)
+function house_fits_characteristic(house::House, characteristic::Characteristic, md::MarketData)
     house.nbedrooms == characteristic.nbedrooms &&
     house.nbathrooms == characteristic.nbathrooms &&
-    house.rent <= PRICE_RANGES_PP[characteristic.price_at_most] &&
-    house.area >= AREA_RANGES[characteristic.area_at_least]
+    house.rent <= md.prices_range_pp[characteristic.price_at_most] &&
+    house.area >= md.area_range[characteristic.area_at_least]
 end
 
 """
 This will become our column generation part later.
 """
-all_possible_characteristics = Characteristic[]
-for nbed in NBEDROOMS_RANGE
-    for nbath in NBATHROOMS_RANGE
-        nbath > nbed && continue
-        for p in 1:length(PRICE_RANGES_PP)
-            for a in 1:length(AREA_RANGES)
-                push!(all_possible_characteristics, Characteristic(nbed, nbath, p, a))
+function get_all_characteristics(md::MarketData)
+    all_possible_characteristics = Characteristic[]
+    for nbed in md.bedrooms_range
+        for nbath in md.bathrooms_range
+            nbath > nbed && continue
+            for p in 1:length(md.prices_range_pp)
+                for a in 1:length(md.area_range)
+                    push!(all_possible_characteristics, Characteristic(nbed, nbath, p, a))
+                end
             end
         end
     end
+    all_possible_characteristics
 end
-C = length(all_possible_characteristics)
-println(length(C)) # 3150
+# C = length(all_possible_characteristics)
+# println(length(C)) # 3150
 
 # There are 100 houses/apartments this semester
 """
@@ -90,26 +105,32 @@ println(length(C)) # 3150
 Get the houses that we expect will be available on the market. Since we have no
 real data, we generate some synthetic ones here.
 """
-function gethouses(nhouses::Int)
+function gethouses(nhouses::Int, md::MarketData)
     houses = House[]
     for h = 1:nhouses
-        nbedrooms = sample(NBEDROOMS_RANGE, NBDROOMS_FREQCY)
-        nbathrooms = sample(NBATHROOMS_RANGE, NBATHROOMS_FREQCY)
+        nbedrooms = sample(md.bedrooms_range, md.bedrooms_frequencye)
+        nbathrooms = sample(md.bathrooms_range, md.bathrooms_frequency)
         area = avg_area(nbedrooms, nbathrooms) + rand(Normal(0.0, 10.0))
         rent = avg_rent(nbedrooms, nbathrooms, area) + rand(Normal(0.0, 100.0))
-        push!(houses, House(nbedrooms, nbathrooms, area, rent))
+        push!(houses, House(nbedrooms, nbathrooms, rent, area))
     end
     houses
 end
 
+
+struct StudentHousingData
+    budget::Float64
+    all_characteristics::Vector{Characteristic}
+    houses::Vector{House}
+    market_data::MarketData
+end
 """
-    StudentHousingData(nhouses::Int=1, ncharacteristics::Int=1, budget::Float64=1e6)
+    StudentHousingData(market_data; nhouses::Int=1, budget::Float64=1e6)
 
 Holds all data for the housing problem.
 """
-struct StudentHousingData
-    nhouses::Int
-    ncharacteristics::Int
-    budget::Float64
+function StudentHousingData(market_data; nhouses::Int=1, budget::Float64=1e6)
+    all_characteristics = get_all_characteristics(market_data)
+    houses = gethouses(nhouses, market_data)
+    StudentHousingData(budget, all_characteristics, houses, market_data)
 end
-StudentHousingData() = StudentHousingData(1, 1, 1e6)

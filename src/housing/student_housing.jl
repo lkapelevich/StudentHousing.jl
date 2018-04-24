@@ -14,26 +14,35 @@
 
 
 
-using StudentHousing, JuMP, SDDP, SDDiP
+using StudentHousing, JuMP, SDDP, SDDiP, StatsBase
 
 srand(32)
 
 # Before using bigger data, let's try a small example.
 
-# Suppose there are only 10 possible combinations of characteristics that describe a house
-small_c = 10
-# All possible preference patterns
-npatterns = 2^small_c # TODO this is not always 2^c so should go into our data
+NBEDROOMS_RANGE = collect(1:2)
+NBDROOMS_FREQCY = Weights([0.5, 0.5])
+NBATHROOMS_RANGE = collect(1:2)
+NBATHROOMS_FREQCY = Weights([0.5, 0.5])
+PRICE_RANGES_PP = [800.0, 1000.0]
+AREA_RANGES = [0.0]
 
+# Prep data
+market_data = StudentHousing.MarketData(NBEDROOMS_RANGE, NBDROOMS_FREQCY, NBATHROOMS_RANGE, NBATHROOMS_FREQCY, PRICE_RANGES_PP, AREA_RANGES)
 budget = 1e6
-
-# Get data
-data = StudentHousingData(2, small_c, budget)
+problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget)
 
 # Build models
-m_one_stage   = onestagemodel(data)
-m_multi_stage = multistagemodel(data)
+m_one_stage   = onestagemodel(problem_data)
+m_multi_stage = multistagemodel(problem_data)
 
 # Solve them
 solve(m_one_stage)
 solve(m_multi_stage, max_iterations = 8)
+
+
+# One stage example:
+
+
+# StudentHousing.Characteristic[StudentHousing.Characteristic(1, 1, 1, 1), StudentHousing.Characteristic(1, 1, 2, 1), StudentHousing.Characteristic(2, 1, 1, 1), StudentHousing.Characteristic(2, 1, 2, 1), StudentHousing.Characteristic(2, 2, 1, 1), StudentHousing.Characteristic(2, 2, 2, 1)]
+# StudentHousing.House[StudentHousing.House(2, 1, 634.796, 614.355), StudentHousing.House(1, 1, 557.96, 311.02)]
