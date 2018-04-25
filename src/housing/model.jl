@@ -1,14 +1,4 @@
-# ==============================================================================
-# Some helper functions
 
-# Don't need to write this explictly but we'll do it anyway
-string2vector(s::String) = parse.(split(s, ""))
-# The i^th possible pattern, if there are 2^C of them in total
-explicit_pattern(i::Int, c::Int) = string2vector(bin(i-1, c))
-beds_avail(i::Int, houses::Vector{House}) = houses[i].nbedrooms
-maintenance(i::Int, houses::Vector{House}) = maintenance(houses[i])
-get_ncharacteristics(d::StudentHousingData) = length(d.all_characteristics)
-get_npatterns(d::StudentHousingData) = 2^get_ncharacteristics(d)
 
 """
     house_fits_pattern(house::House, p::Int, C::Int)
@@ -42,11 +32,9 @@ function onestagemodel(d::StudentHousingData)
     npatterns = get_npatterns(d)
     houses = d.houses
     nhouses = length(d.houses)
-
-    demand = round.(rand(npatterns) * 1) # move this to data part
+    demand = d.demands[:, 1, 1]
 
     println(houses)
-    # println(demand)
 
     m = Model(solver = GurobiSolver(OutputFlag=0))
     # m = Model(solver = CplexSolver(CPX_PARAM_SCRIND = 0, CPX_PARAM_MIPDISPLAY=0))
@@ -74,18 +62,9 @@ end
 # Multistage work in progress
 function multistagemodel(d::StudentHousingData)
 
-    nstages = 2
-
-    npatterns = get_npatterns(d)
     houses = d.houses
     nhouses = length(d.houses)
-
-    # This will move into the data part. Make random demand.
-    nnoises = 10
-    demands = Array{Float64,3}(npatterns, nnoises, nstages)
-    for n in 1:nnoises
-        demands[:, n, :] .= round.(rand(npatterns, nstages) * 500)
-    end
+    demands = d.demands
     upperbound = sum(sum(sum(demands)))
 
     m = SDDPModel(stages = nstages,
@@ -104,11 +83,9 @@ function multistagemodel(d::StudentHousingData)
         if stage == 1
             @constraint(sp, [p = 1:npatterns], shortage[p] + sum(assignment[i, p] for i = 1:nhouses) <= demands[p, 1, 1])
         else
-            for p = 1:npatterns # TODO better warning than JuMP's modifying range constraints unsupported
+            for p = 1:npatterns
                 @rhsnoise(sp, D = demands[p, :, stage],
-                    shortage[p] + sum(assignment[i, p] for i = 1:nhouses) <= D)
-                @rhsnoise(sp, D = demands[p, :, stage],
-                    shortage[p] + sum(assignment[i, p] for i = 1:nhouses) >= D)
+                    shortage[p] + sum(assignment[i, p] for i = 1:nhouses) == D)
             end
         end
 

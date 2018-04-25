@@ -1,6 +1,6 @@
 using StudentHousing
 using Base.Test
-using JuMP, SDDP, SDDiP, StatsBase
+using JuMP, SDDP, SDDiP, StatsBase, Distributions
 
 srand(32)
 
@@ -16,7 +16,7 @@ AREA_RANGES = [0.0]
 # Prep data
 market_data = StudentHousing.MarketData(NBEDROOMS_RANGE, NBDROOMS_FREQCY, NBATHROOMS_RANGE, NBATHROOMS_FREQCY, PRICE_RANGES_PP, AREA_RANGES)
 budget = 1e6
-problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget)
+problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget, demand_distribution = Uniform())
 
 @testset "Helper functions" begin
     a = zeros(2, 64)
