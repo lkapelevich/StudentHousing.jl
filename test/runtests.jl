@@ -31,6 +31,14 @@ problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget, dem
 
     @test StudentHousing.house_fits_characteristic(problem_data.houses[2], problem_data.all_characteristics[1], problem_data.market_data)
     @test StudentHousing.house_fits_characteristic(problem_data.houses[2], problem_data.all_characteristics[2], problem_data.market_data)
+
+    @testset "Illegal patterns" begin
+        # Characteristic (1,1,1,1) (char 1) dominates (1,1,2,1)  (char 2) (same features but higher cost)
+        # An illegal pattern would be [0 1 x x x x] e.g. [0 1 0 0 0 0] = pattern 2^2 + 1 = 5
+        for i = [0, 4, 8]
+            @test StudentHousing.pattern_is_legal(5 + 1, problem_data.all_characteristics) == false
+        end
+    end
 end
 
 @testset "Single stage deterministic" begin

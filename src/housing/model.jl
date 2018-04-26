@@ -34,20 +34,23 @@ function onestagemodel(d::StudentHousingData)
     nhouses = length(d.houses)
     demand = d.demands[:, 1, 1]
 
-    println(houses)
+    # Compute the set of only legal patterns
+    legal_pattern_indices = pattern_is_legal(collect(1:npatterns), d.all_characteristics)
+    patterns = collect(1:npatterns)[legal_pattern_indices]
+    patterns = collect(1:npatterns)
 
     m = Model(solver = GurobiSolver(OutputFlag=0))
     # m = Model(solver = CplexSolver(CPX_PARAM_SCRIND = 0, CPX_PARAM_MIPDISPLAY=0))
     @variables(m, begin
-        shortage[1:npatterns] >= 0
+        shortage[patterns] >= 0
         investment[1:nhouses], Bin
-        assignment[1:nhouses, 1:npatterns] >= 0, Int
+        assignment[1:nhouses, patterns] >= 0, Int
     end)
 
     @constraints(m, begin
-        [p = 1:npatterns], shortage[p] == demand[p] - sum(assignment[i, p] for i = 1:nhouses)
-        [i = 1:nhouses, p = 1:npatterns], assignment[i, p] * beds_needed(p) <= house_fits_pattern(i, p, d) * investment[i] * beds_avail(i, houses)
-        [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p) for  p = 1:npatterns) <= investment[i] * beds_avail(i, houses)
+        [p in patterns], shortage[p] == demand[p] - sum(assignment[i, p] for i = 1:nhouses)
+        [i = 1:nhouses, p in patterns], assignment[i, p] * beds_needed(p) <= house_fits_pattern(i, p, d) * investment[i] * beds_avail(i, houses)
+        [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p) for p in patterns) <= investment[i] * beds_avail(i, houses)
         sum(investment[i] * maintenance(i, houses) for i = 1:nhouses) <= d.budget
     end)
 

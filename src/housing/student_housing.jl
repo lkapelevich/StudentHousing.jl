@@ -81,6 +81,19 @@ println(StudentHousing.explicit_pattern(19, length(problem_data.all_characterist
 # ==============================================================================
 # One stage, larger model.
 # ==============================================================================
+# Let's see how much we can scale up without any large-scale techniques.
+nbedrooms_range = collect(1:2)
+nbedrooms_frequency = Weights([0.5, 0.5])
+nbathrooms_range = collect(1:2)
+nbathrooms_frequency = Weights([0.5, 0.5])
+prices_range_pp = [800.0, 1000.0]
+area_ranges = [0.0]
+market_data = StudentHousing.MarketData(nbedrooms_range, nbedrooms_frequency,
+    nbathrooms_range, nbathrooms_frequency, prices_range_pp, area_ranges)
+budget = 1e6
+problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget, demand_distribution = Uniform())
+P = StudentHousing.get_npatterns(problem_data)
+
 
 
 

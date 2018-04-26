@@ -132,6 +132,47 @@ function getdemand(npatterns::Int, nnoises::Int, nstages::Int, d::ContinuousDist
     demands
 end
 
+"""
+    function dominates(c1::Characteristic, c2::Characteristic)
+
+Returns true if `c1` dominates `c2`.
+"""
+function dominates(c1::Characteristic, c2::Characteristic)
+    (c1.nbedrooms <= c2.nbedrooms) && # fewer roommates
+    (c1.nbathrooms >= c2.nbathrooms) &&
+    (c1.price_at_most <= c2.price_at_most) &&
+    (c1.area_at_least >= c2.area_at_least)
+end
+# Don't need to write this explictly but we'll do it anyway so we can see what
+# we're doing
+string2vector(s::String) = parse.(split(s, ""))
+# The i^th possible pattern, if there are 2^C of them in total
+explicit_pattern(i::Int, c::Int) = string2vector(bin(i-1, c))
+"""
+    function pattern_is_legal(p::Int, C::Int)
+
+Returns true if the `p`^th pattern in the binary sequence of patterns formed by
+`C` doesn't forbid any characteristic, that dominates an allowed characteristic.
+"""
+function pattern_is_legal(p::Int, all_characteristics::Vector{Characteristic})
+    n = length(all_characteristics)
+    pattern = explicit_pattern(p, n)
+    @inbounds for i = 1:n
+        if pattern[i] == 1
+            # check that it is not dominated by anything with a 0
+            for j = i+1:n
+                if pattern[j] == 0 && dominates(all_characteristics[j], all_characteristics[i])
+                    return false
+                end
+            end
+        end
+    end
+    true
+end
+function pattern_is_legal(p::Vector{Int}, C::Vector{Characteristic})
+    map(x -> pattern_is_legal(x, C), p)
+end
+
 struct StudentHousingData
     budget::Float64
     all_characteristics::Vector{Characteristic}
@@ -170,10 +211,6 @@ end
 
 # Some helper functions
 
-# Don't need to write this explictly but we'll do it anyway
-string2vector(s::String) = parse.(split(s, ""))
-# The i^th possible pattern, if there are 2^C of them in total
-explicit_pattern(i::Int, c::Int) = string2vector(bin(i-1, c))
 beds_avail(i::Int, houses::Vector{House}) = houses[i].nbedrooms
 maintenance(i::Int, houses::Vector{House}) = maintenance(houses[i])
 get_ncharacteristics(d::StudentHousingData) = length(d.all_characteristics)
