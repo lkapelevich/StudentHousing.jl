@@ -11,8 +11,10 @@ function house_fits_pattern(i::Int, p::Int, d::StudentHousingData)
     C = get_ncharacteristics(d)
     # The house we are concerened with
     h = d.houses[i]
+    # Get the index in the original set of patterns
+    idx = d.legal_pattern_indices[p]
     # Get the explicit pattern
-    pattern = explicit_pattern(p, C)
+    pattern = explicit_pattern(idx, C)
     # For every characteristic possible
     for (i, c) in enumerate(pattern)
         # Does this person's preference pattern allow this characteristic?
@@ -29,28 +31,26 @@ beds_needed(p::Int) = 1.0
 
 function onestagemodel(d::StudentHousingData)
 
-    npatterns = get_npatterns(d)
     houses = d.houses
     nhouses = length(d.houses)
+    # One stage and deterministic
     demand = d.demands[:, 1, 1]
 
-    # Compute the set of only legal patterns
-    legal_pattern_indices = pattern_is_legal(collect(1:npatterns), d.all_characteristics)
-    patterns = collect(1:npatterns)[legal_pattern_indices]
-    patterns = collect(1:npatterns)
+    # The number of only legal patterns
+    npatterns = length(d.legal_pattern_indices)
 
     m = Model(solver = GurobiSolver(OutputFlag=0))
     # m = Model(solver = CplexSolver(CPX_PARAM_SCRIND = 0, CPX_PARAM_MIPDISPLAY=0))
     @variables(m, begin
-        shortage[patterns] >= 0
+        shortage[1:npatterns] >= 0
         investment[1:nhouses], Bin
-        assignment[1:nhouses, patterns] >= 0, Int
+        assignment[1:nhouses, 1:npatterns] >= 0, Int
     end)
 
     @constraints(m, begin
-        [p in patterns], shortage[p] == demand[p] - sum(assignment[i, p] for i = 1:nhouses)
-        [i = 1:nhouses, p in patterns], assignment[i, p] * beds_needed(p) <= house_fits_pattern(i, p, d) * investment[i] * beds_avail(i, houses)
-        [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p) for p in patterns) <= investment[i] * beds_avail(i, houses)
+        [p = 1:npatterns], shortage[p] == demand[p] - sum(assignment[i, p] for i = 1:nhouses)
+        [i = 1:nhouses, p = 1:npatterns], assignment[i, p] * beds_needed(p) <= house_fits_pattern(i, p, d) * investment[i] * beds_avail(i, houses)
+        [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p) for p = 1:npatterns) <= investment[i] * beds_avail(i, houses)
         sum(investment[i] * maintenance(i, houses) for i = 1:nhouses) <= d.budget
     end)
 
@@ -69,6 +69,9 @@ function multistagemodel(d::StudentHousingData)
     nhouses = length(d.houses)
     demands = d.demands
     upperbound = sum(sum(sum(demands)))
+
+    # The number of only legal patterns
+    npatterns = length(d.legal_pattern_indices)
 
     m = SDDPModel(stages = nstages,
             objective_bound = 0.0,

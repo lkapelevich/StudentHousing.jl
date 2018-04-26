@@ -179,6 +179,7 @@ struct StudentHousingData
     houses::Vector{House}
     market_data::MarketData
     demands::Array{Float64,3}
+    legal_pattern_indices::Vector{Int}
 end
 
 function check_data(nhouses::Int, nnoises::Int)
@@ -202,11 +203,21 @@ function StudentHousingData(market_data; nstages::Int=1,
                         )
 
     check_data(nhouses, nnoises) || error("Specified non-positive values for positive parameters.")
+    # Get all possible combinations of market characteristics
     all_characteristics = get_all_characteristics(market_data)
+    # Generate some data describing houses
     houses = gethouses(nhouses, market_data)
-    npatterns = 2^(length(all_characteristics))
+    # The lartest number of preference paterns we could have
+    n_all_patterns = 2^(length(all_characteristics))
+    # Isolate only the patterns that make logical sense
+    legality = pattern_is_legal(collect(1:n_all_patterns), all_characteristics)
+    legal_pattern_indices = collect(1:n_all_patterns)[legality]
+    # The number of patterns is the number of logically sound patterns
+    npatterns = length(legal_pattern_indices)
+    # Generate demand data
     demands = getdemand(npatterns, nnoises, nstages, demand_distribution)
-    StudentHousingData(budget, all_characteristics, houses, market_data, demands)
+    StudentHousingData(budget, all_characteristics, houses, market_data,
+        demands, legal_pattern_indices)
 end
 
 # Some helper functions
@@ -214,4 +225,4 @@ end
 beds_avail(i::Int, houses::Vector{House}) = houses[i].nbedrooms
 maintenance(i::Int, houses::Vector{House}) = maintenance(houses[i])
 get_ncharacteristics(d::StudentHousingData) = length(d.all_characteristics)
-get_npatterns(d::StudentHousingData) = 2^get_ncharacteristics(d)
+# get_npatterns(d::StudentHousingData) = 2^get_ncharacteristics(d)

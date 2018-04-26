@@ -54,8 +54,9 @@ println(problem_data.all_characteristics)
 
 # Our houses could be described as
 # house 1: 2 bedrooms, 1 bathroom, <800$,  >= 0 sqrt ft (fits characteristic 3)
+# house 1: 2 bedrooms, 1 bathroom, <1000$, >= 0 sqrt ft (fits characteristic 4)
 # house 2: 1 bedrooms, 1 bathroom, <800$,  >= 0 sqrt ft (fits characteristic 1)
-# house 2: 2 bedrooms, 2 bathroom, <1000$, >= 0 sqrt ft (fits characteristic 2)
+# house 2: 1 bedrooms, 1 bathroom, <1000$, >= 0 sqrt ft (fits characteristic 2)
 
 # Note that the second house fits the descriptions of the first and second set
 # of characteristics. Some preference patterns will allow the first only, some
@@ -68,14 +69,19 @@ m_one_stage = onestagemodel(problem_data)
 @assert solve(m_one_stage) == :Optimal
 
 # Have a look at our solutions:
-println(m_one_stage[:investment])
-println(m_one_stage[:assignment])
+println(getvalue(m_one_stage[:investment]))
+println(find(getvalue(m_one_stage[:assignment][1,:])))
+# [6, 15]
+println(find(getvalue(m_one_stage[:assignment][2,:])))
+# [19]
 # We have chosen to invest in both houses and assigned the first to one
-# entity with preference pattern 15, and one with preference pattern 11.
+# entity with preference pattern 6, and one with preference pattern 15.
 # We assigned the second house to someone with preference pattern 19.
-println(StudentHousing.explicit_pattern(11, length(problem_data.all_characteristics)))
-# Shows us that preference pattern 11 allows characteristics set 3.
-println(StudentHousing.explicit_pattern(19, length(problem_data.all_characteristics)))
+p = problem_data.legal_pattern_indices[6]
+println(StudentHousing.explicit_pattern(p, length(problem_data.all_characteristics)))
+# Shows us that preference pattern 6 allows characteristics set 4.
+p = problem_data.legal_pattern_indices[19]
+println(StudentHousing.explicit_pattern(p, length(problem_data.all_characteristics)))
 # Shows us that preference pattern 19 allows characteristics set 2.
 
 # ==============================================================================
@@ -92,7 +98,7 @@ market_data = StudentHousing.MarketData(nbedrooms_range, nbedrooms_frequency,
     nbathrooms_range, nbathrooms_frequency, prices_range_pp, area_ranges)
 budget = 1e6
 problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget, demand_distribution = Uniform())
-P = StudentHousing.get_npatterns(problem_data)
+# P = StudentHousing.get_npatterns(problem_data)
 
 
 
