@@ -64,42 +64,90 @@ println(problem_data.all_characteristics)
 # one assignment over another at the moment (e.g. assign lowest rent when
 # possible). (TODO)
 
+# If we permitted any combination of approving/disapproving a characteristic,
+# we would have 2^6 = 64 preference patterns. However we have cached a reference
+# to all the preference patterns that make logical sense
+println(problem_data.legal_pattern_indices)
+# [3, 4, 33, 35, 36, 43, 44, 49, 51, 52, 59, 60, 64]
+# These patterns don't allow a person to be OK with characteristic x but not OK
+# with characteristic y that dominates x (better in every single feature).
+
 # Build the model and solve
 m_one_stage = onestagemodel(problem_data)
 @assert solve(m_one_stage) == :Optimal
 
 # Have a look at our solutions:
 println(getvalue(m_one_stage[:investment]))
+# [1.0, 1.0]
 println(find(getvalue(m_one_stage[:assignment][1,:])))
-# [6, 15]
+# [6, 11]
 println(find(getvalue(m_one_stage[:assignment][2,:])))
-# [19]
+# [3]
 # We have chosen to invest in both houses and assigned the first to one
-# entity with preference pattern 6, and one with preference pattern 15.
-# We assigned the second house to someone with preference pattern 19.
+# entity with preference pattern 6, and one with preference pattern 1.
+# We assigned the second house to someone with preference pattern 3.
+
+# Some sanity checks:
 p = problem_data.legal_pattern_indices[6]
 println(StudentHousing.explicit_pattern(p, length(problem_data.all_characteristics)))
-# Shows us that preference pattern 6 allows characteristics set 4.
-p = problem_data.legal_pattern_indices[19]
+# [1, 0, 1, 0, 1, 0]
+p = problem_data.legal_pattern_indices[11]
 println(StudentHousing.explicit_pattern(p, length(problem_data.all_characteristics)))
-# Shows us that preference pattern 19 allows characteristics set 2.
+# [1, 1, 1, 0, 1, 0]
+# ... shows us that preference pattern 6 allows characteristics set 3, and
+# preference pattern 11 allows characteristic 3 (which house 1 fits).
+p = problem_data.legal_pattern_indices[3]
+println(StudentHousing.explicit_pattern(p, length(problem_data.all_characteristics)))
+# [1, 0, 0, 0, 0, 0]
+# ... shows us that preference pattern 3 allows characteristics set 1.
 
 # ==============================================================================
 # One stage, larger model.
 # ==============================================================================
-# Let's see how much we can scale up without any large-scale techniques.
-nbedrooms_range = collect(1:2)
-nbedrooms_frequency = Weights([0.5, 0.5])
-nbathrooms_range = collect(1:2)
-nbathrooms_frequency = Weights([0.5, 0.5])
-prices_range_pp = [800.0, 1000.0]
-area_ranges = [0.0]
-market_data = StudentHousing.MarketData(nbedrooms_range, nbedrooms_frequency,
-    nbathrooms_range, nbathrooms_frequency, prices_range_pp, area_ranges)
-budget = 1e6
-problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget, demand_distribution = Uniform())
-# P = StudentHousing.get_npatterns(problem_data)
+# Let's see how much we can scale up without any large-scale techniques,
+# and investigate how much we lose by solving a linear relaxation of our
+# problem.
 
+# To scale up, we'll just increase the number of bedrooms allowed for now.
+
+function bedrooms_scale(i::Int)
+    # Number of possible bedrooms = 1 -> i
+    nbedrooms_range = collect(1:i)
+    # Some synthetic sampling probabilities
+    weights = 2.0.^(-collect(1:i))
+    weights[1] = 1 - sum(weights[2:end])
+    nbedrooms_frequency = Weights(weights)
+    # Return the bedroom data
+    nbedrooms_range, nbedrooms_frequency
+end
+
+
+nbathrooms_range = collect(1:1)
+nbathrooms_frequency = Weights([1.0])
+prices_range_pp = [800.0]
+area_ranges = [0.0]
+budget = 1e6
+
+for i = 1:5
+    nbedrooms_range, nbedrooms_frequency = bedrooms_scale(i)
+    market_data = StudentHousing.MarketData(nbedrooms_range,
+        nbedrooms_frequency, nbathrooms_range, nbathrooms_frequency,
+        prices_range_pp, area_ranges)
+    problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget,
+        demand_distribution = Uniform())
+    P = StudentHousing.get_npatterns(problem_data)
+    println("Using $P patterns, solving MIP:")
+    @show problem_data.legal_pattern_indices
+    m_one_stage = onestagemodel(problem_data)
+    tic()
+    @assert solve(m_one_stage) == :Optimal
+    toc()
+    println("MIP objective = ", getobjectivevalue(m_one_stage))
+    tic()
+    @assert solve(m_one_stage, relaxation = true) == :Optimal
+    toc()
+    println("LP objective = ", getobjectivevalue(m_one_stage))
+end
 
 
 

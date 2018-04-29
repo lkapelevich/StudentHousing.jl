@@ -15,7 +15,7 @@ Describes the range of values we are dealing with.
 """
 struct MarketData
     bedrooms_range::Vector{Int}
-    bedrooms_frequencye::Weights
+    bedrooms_frequency::Weights
     bathrooms_range::Vector{Int}
     bathrooms_frequency::Weights
     prices_range_pp::Vector{Float64}
@@ -108,7 +108,7 @@ real data, we generate some synthetic ones here.
 function gethouses(nhouses::Int, md::MarketData)
     houses = House[]
     for h = 1:nhouses
-        nbedrooms = sample(md.bedrooms_range, md.bedrooms_frequencye)
+        nbedrooms = sample(md.bedrooms_range, md.bedrooms_frequency)
         nbathrooms = sample(md.bathrooms_range, md.bathrooms_frequency)
         area = avg_area(nbedrooms, nbathrooms) + rand(Normal(0.0, 10.0))
         rent = avg_rent(nbedrooms, nbathrooms, area) + rand(Normal(0.0, 100.0))
@@ -157,17 +157,25 @@ Returns true if the `p`^th pattern in the binary sequence of patterns formed by
 function pattern_is_legal(p::Int, all_characteristics::Vector{Characteristic})
     n = length(all_characteristics)
     pattern = explicit_pattern(p, n)
+    # Assume a person would never say they are OK to live in characteristic x
+    # but not OK to live in characteristic y, which is better than x. Converse
+    # is OK.
+    # Also disallow the empty pattern
+    isemptypattern = true
     @inbounds for i = 1:n
         if pattern[i] == 1
+            isemptypattern = false
             # check that it is not dominated by anything with a 0
-            for j = i+1:n
+            for j = 1:n
+                i == j && continue
                 if pattern[j] == 0 && dominates(all_characteristics[j], all_characteristics[i])
                     return false
                 end
             end
         end
     end
-    true
+    # Didn't find any conflicts, so if not empty, then pattern is legal
+    !isemptypattern
 end
 function pattern_is_legal(p::Vector{Int}, C::Vector{Characteristic})
     map(x -> pattern_is_legal(x, C), p)
@@ -225,4 +233,4 @@ end
 beds_avail(i::Int, houses::Vector{House}) = houses[i].nbedrooms
 maintenance(i::Int, houses::Vector{House}) = maintenance(houses[i])
 get_ncharacteristics(d::StudentHousingData) = length(d.all_characteristics)
-# get_npatterns(d::StudentHousingData) = 2^get_ncharacteristics(d)
+get_npatterns(d::StudentHousingData) = length(d.legal_pattern_indices)

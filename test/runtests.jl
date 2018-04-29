@@ -25,9 +25,9 @@ problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget, dem
             a[i,p] = Int(StudentHousing.house_fits_pattern(i, p, problem_data))
         end
     end
-    @test 6  in find(a[1,:] .≈ 1) # 6th pattern allows house 1
-    @test 15 in find(a[1,:] .≈ 1) # 15th pattern allows house 1
-    @test 19 in find(a[2,:] .≈ 1) # 19th pattern allows house 2
+    @test 6  in find(a[1,:] .≈ 1) # 6th  pattern allows house 1
+    @test 11 in find(a[1,:] .≈ 1) # 11th pattern allows house 1
+    @test 3  in find(a[2,:] .≈ 1) # 3rd  pattern allows house 2
 
     @test StudentHousing.house_fits_characteristic(problem_data.houses[1], problem_data.all_characteristics[3], problem_data.market_data)
     @test StudentHousing.house_fits_characteristic(problem_data.houses[1], problem_data.all_characteristics[4], problem_data.market_data)
@@ -40,6 +40,7 @@ problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget, dem
         for i = [0, 4, 8]
             @test StudentHousing.pattern_is_legal(5 + 1, problem_data.all_characteristics) == false
         end
+        @test StudentHousing.get_npatterns(problem_data) == 13
     end
 end
 
@@ -51,10 +52,10 @@ end
     # Solve them
     solve(m_one_stage)
 
-    @test getobjectivevalue(m_one_stage) ≈ 15.0
+    @test getobjectivevalue(m_one_stage) ≈ 2.0
     @test getvalue(m_one_stage[:assignment][1,  6]) ≈ 1.0
-    @test getvalue(m_one_stage[:assignment][1, 15]) ≈ 1.0
-    @test getvalue(m_one_stage[:assignment][2, 19]) ≈ 1.0
+    @test getvalue(m_one_stage[:assignment][1, 11]) ≈ 1.0
+    @test getvalue(m_one_stage[:assignment][2,  3]) ≈ 1.0
 
 
 end
