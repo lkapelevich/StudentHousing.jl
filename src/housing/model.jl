@@ -1,26 +1,15 @@
-
-
 """
-    house_fits_pattern(house::House, p::Int, C::Int)
+    house_fits_pattern(i::Int, p::Int, d::StudentHousingData)
 
 Returns a Boolean denoting whether someone with preference pattern `p` would
-be willing to live in `house`. `C` is the number of distinct characteristics in
-our data.
+be willing to live in the `i`^th house.
 """
 function house_fits_pattern(i::Int, p::Int, d::StudentHousingData)
-    C = get_ncharacteristics(d)
-    # The house we are concerened with
     h = d.houses[i]
-    # Get the index in the original set of patterns
-    idx = d.legal_pattern_indices[p]
-    # Get the explicit pattern
-    pattern = explicit_pattern(idx, C)
-    # For every characteristic possible
-    for (i, c) in enumerate(pattern)
-        # Does this person's preference pattern allow this characteristic?
-        c == 0 && continue
-        # Check if the house fits the characteristic also
-        house_fits_characteristic(h, d.all_characteristics[i], d.market_data) && return true
+    for c in d.patterns_allow[p]
+        if house_fits_characteristic(h, d.all_characteristics[c], d.market_data)
+            return true
+        end
     end
     false
 end
@@ -37,7 +26,7 @@ function onestagemodel(d::StudentHousingData)
     demand = d.demands[:, 1, 1]
 
     # The number of only legal patterns
-    npatterns = length(d.legal_pattern_indices)
+    npatterns = length(d.patterns_allow)
 
     m = Model(solver = GurobiSolver(OutputFlag=0))
     # m = Model(solver = CplexSolver(CPX_PARAM_SCRIND = 0, CPX_PARAM_MIPDISPLAY=0))
@@ -71,7 +60,7 @@ function multistagemodel(d::StudentHousingData)
     upperbound = sum(sum(sum(demands)))
 
     # The number of only legal patterns
-    npatterns = length(d.legal_pattern_indices)
+    npatterns = length(d.patterns_allow)
 
     m = SDDPModel(stages = nstages,
             objective_bound = 0.0,

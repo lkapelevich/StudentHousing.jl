@@ -143,43 +143,44 @@ function dominates(c1::Characteristic, c2::Characteristic)
     (c1.price_at_most <= c2.price_at_most) &&
     (c1.area_at_least >= c2.area_at_least)
 end
-# Don't need to write this explictly but we'll do it anyway so we can see what
-# we're doing
-string2vector(s::String) = parse.(split(s, ""))
-# The i^th possible pattern, if there are 2^C of them in total
-explicit_pattern(i::Int, c::Int) = string2vector(bin(i-1, c))
-"""
-    function pattern_is_legal(p::Int, C::Int)
 
-Returns true if the `p`^th pattern in the binary sequence of patterns formed by
-`C` doesn't forbid any characteristic, that dominates an allowed characteristic.
 """
-function pattern_is_legal(p::Int, all_characteristics::Vector{Characteristic})
-    n = length(all_characteristics)
-    pattern = explicit_pattern(p, n)
-    # Assume a person would never say they are OK to live in characteristic x
-    # but not OK to live in characteristic y, which is better than x. Converse
-    # is OK.
-    # Also disallow the empty pattern
-    isemptypattern = true
-    @inbounds for i = 1:n
-        if pattern[i] == 1
-            isemptypattern = false
+    pattern_is_legal(p::Vector{Int}, all_characteristics::Vector{Characteristic})
+
+Checks whether there are logical conflicts in the characteristics referenced
+within `p`.
+"""
+function pattern_is_legal(p::Vector{Int}, all_characteristics::Vector{Characteristic})
+    for i = 1:length(p)
+        if p[i] == 1
             # check that it is not dominated by anything with a 0
-            for j = 1:n
+            for j = 1:length(p)
                 i == j && continue
-                if pattern[j] == 0 && dominates(all_characteristics[j], all_characteristics[i])
+                if p[j] == 0 && dominates(all_characteristics[j], all_characteristics[i])
                     return false
                 end
             end
         end
     end
     # Didn't find any conflicts, so if not empty, then pattern is legal
-    !isemptypattern
+    true
 end
-function pattern_is_legal(p::Vector{Int}, C::Vector{Characteristic})
-    map(x -> pattern_is_legal(x, C), p)
+
+function make_all_patterns(all_characteristics::Vector{Characteristic})
+    all_patterns = Vector{Int}[]
+    p = zeros(Int, length(all_characteristics))
+    while true
+        addone!(p)
+        if pattern_is_legal(p, all_characteristics)
+            push!(all_patterns, copy(p))
+        end
+        if all(p .== 1)
+            break
+        end
+    end
+    all_patterns
 end
+
 
 struct StudentHousingData
     budget::Float64
@@ -187,7 +188,7 @@ struct StudentHousingData
     houses::Vector{House}
     market_data::MarketData
     demands::Array{Float64,3}
-    legal_pattern_indices::Vector{Int}
+    patterns_allow::Vector{Vector{Int}}
 end
 
 function check_data(nhouses::Int, nnoises::Int)
@@ -215,17 +216,23 @@ function StudentHousingData(market_data; nstages::Int=1,
     all_characteristics = get_all_characteristics(market_data)
     # Generate some data describing houses
     houses = gethouses(nhouses, market_data)
-    # The lartest number of preference paterns we could have
-    n_all_patterns = 2^(length(all_characteristics))
-    # Isolate only the patterns that make logical sense
-    legality = pattern_is_legal(collect(1:n_all_patterns), all_characteristics)
-    legal_pattern_indices = collect(1:n_all_patterns)[legality]
+
+    # Isolate only the patterns that make logical sense without ever computing
+    # all patterns
+    patterns = make_all_patterns(all_characteristics)
+    # Cache characteristics each pattern will allow
+    npatterns = length(patterns)
+    patterns_sparse = Vector{Vector{Int}}(npatterns)
+    for i = 1:npatterns
+        patterns_sparse[i] = find(patterns[i] .> 0)
+    end
+
     # The number of patterns is the number of logically sound patterns
-    npatterns = length(legal_pattern_indices)
+    npatterns = length(patterns_sparse)
     # Generate demand data
     demands = getdemand(npatterns, nnoises, nstages, demand_distribution)
     StudentHousingData(budget, all_characteristics, houses, market_data,
-        demands, legal_pattern_indices)
+        demands, patterns_sparse)
 end
 
 # Some helper functions
@@ -233,4 +240,4 @@ end
 beds_avail(i::Int, houses::Vector{House}) = houses[i].nbedrooms
 maintenance(i::Int, houses::Vector{House}) = maintenance(houses[i])
 get_ncharacteristics(d::StudentHousingData) = length(d.all_characteristics)
-get_npatterns(d::StudentHousingData) = length(d.legal_pattern_indices)
+get_npatterns(d::StudentHousingData) = length(d.patterns_allow)

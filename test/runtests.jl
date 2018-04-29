@@ -19,9 +19,11 @@ budget = 1e6
 problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget, demand_distribution = Uniform())
 
 @testset "Helper functions" begin
+    npatterns = StudentHousing.get_npatterns(problem_data)
+    @test npatterns == 13
     a = zeros(2, 64)
     for i = 1:2
-        for p = 1:length(problem_data.legal_pattern_indices)
+        for p = 1:npatterns
             a[i,p] = Int(StudentHousing.house_fits_pattern(i, p, problem_data))
         end
     end
@@ -36,11 +38,11 @@ problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget, dem
 
     @testset "Illegal patterns" begin
         # Characteristic (1,1,1,1) (char 1) dominates (1,1,2,1)  (char 2) (same features but higher cost)
-        # An illegal pattern would be [0 1 x x x x] e.g. [0 1 0 0 0 0] = pattern 2^2 + 1 = 5
-        for i = [0, 4, 8]
-            @test StudentHousing.pattern_is_legal(5 + 1, problem_data.all_characteristics) == false
-        end
-        @test StudentHousing.get_npatterns(problem_data) == 13
+        # An illegal pattern would be [0 1 x x x x]
+        @test StudentHousing.pattern_is_legal([0, 1, 0, 0, 0, 0], problem_data.all_characteristics) == false
+        @test StudentHousing.pattern_is_legal([0, 1, 0, 1, 0, 0], problem_data.all_characteristics) == false
+        all_patterns = StudentHousing.make_all_patterns(problem_data.all_characteristics)
+        @test length(all_patterns) == 13
     end
 end
 

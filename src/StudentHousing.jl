@@ -9,6 +9,7 @@ export
     StudentHousingData,
     onestagemodel, multistagemodel
 
+include("housing/binary_hacks.jl")
 include("housing/data.jl")
 include("housing/model.jl")
 

@@ -67,10 +67,11 @@ println(problem_data.all_characteristics)
 # If we permitted any combination of approving/disapproving a characteristic,
 # we would have 2^6 = 64 preference patterns. However we have cached a reference
 # to all the preference patterns that make logical sense
-println(problem_data.legal_pattern_indices)
-# [3, 4, 33, 35, 36, 43, 44, 49, 51, 52, 59, 60, 64]
-# These patterns don't allow a person to be OK with characteristic x but not OK
-# with characteristic y that dominates x (better in every single feature).
+# julia> println(length(problem_data.patterns_allow))
+# 13
+# So 13 patterns don't allow a person to be OK with characteristic x but not OK
+# with characteristic y that dominates x (better in every single rankable
+# feature).
 
 # Build the model and solve
 m_one_stage = onestagemodel(problem_data)
@@ -88,17 +89,23 @@ println(find(getvalue(m_one_stage[:assignment][2,:])))
 # We assigned the second house to someone with preference pattern 3.
 
 # Some sanity checks:
-p = problem_data.legal_pattern_indices[6]
+p = problem_data.patterns_allow[6]
+# 3-element Array{Int64,1}:
+#  1
+#  3
+#  5
+p = problem_data.patterns_allow[11]
 println(StudentHousing.explicit_pattern(p, length(problem_data.all_characteristics)))
-# [1, 0, 1, 0, 1, 0]
-p = problem_data.legal_pattern_indices[11]
-println(StudentHousing.explicit_pattern(p, length(problem_data.all_characteristics)))
-# [1, 1, 1, 0, 1, 0]
+# 4-element Array{Int64,1}:
+#  1
+#  2
+#  3
+#  5
 # ... shows us that preference pattern 6 allows characteristics set 3, and
 # preference pattern 11 allows characteristic 3 (which house 1 fits).
-p = problem_data.legal_pattern_indices[3]
-println(StudentHousing.explicit_pattern(p, length(problem_data.all_characteristics)))
-# [1, 0, 0, 0, 0, 0]
+p = problem_data.patterns_allow[3]
+# 1-element Array{Int64,1}:
+#  1
 # ... shows us that preference pattern 3 allows characteristics set 1.
 
 # ==============================================================================
@@ -122,33 +129,52 @@ function bedrooms_scale(i::Int)
 end
 
 
-nbathrooms_range = collect(1:1)
+nbathrooms_range = collect(1:3)
 nbathrooms_frequency = Weights([1.0])
-prices_range_pp = [800.0]
-area_ranges = [0.0]
-budget = 1e6
+prices_range_pp = [800.0, 1000.0]
+area_ranges = [0.0, 700.0, 850.0]
+budget = 200.0
 
-for i = 1:5
+for i = 1:4
     nbedrooms_range, nbedrooms_frequency = bedrooms_scale(i)
-    market_data = StudentHousing.MarketData(nbedrooms_range,
+    @time market_data = StudentHousing.MarketData(nbedrooms_range,
         nbedrooms_frequency, nbathrooms_range, nbathrooms_frequency,
         prices_range_pp, area_ranges)
-    problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget,
-        demand_distribution = Uniform())
+    @time problem_data = StudentHousingData(market_data, nhouses = 50, budget = budget,
+        demand_distribution = Uniform(0.0, 100.0))
     P = StudentHousing.get_npatterns(problem_data)
     println("Using $P patterns, solving MIP:")
-    @show problem_data.legal_pattern_indices
-    m_one_stage = onestagemodel(problem_data)
+    @time m_one_stage = onestagemodel(problem_data)
+    println("Assigned students = ", sum(sum(getvalue(m_one_stage[:assignment]))))
     tic()
     @assert solve(m_one_stage) == :Optimal
     toc()
     println("MIP objective = ", getobjectivevalue(m_one_stage))
-    tic()
     @assert solve(m_one_stage, relaxation = true) == :Optimal
-    toc()
     println("LP objective = ", getobjectivevalue(m_one_stage))
 end
 
+Using 5 patterns, solving MIP:
+elapsed time: 0.005869044 seconds
+MIP objective = 221.0
+LP objective = 220.6994099433357
+Using 19 patterns, solving MIP:
+elapsed time: 0.007129354 seconds
+MIP objective = 872.0
+LP objective = 871.1601626430233
+Using 49 patterns, solving MIP:
+elapsed time: 0.018248958 seconds
+MIP objective = 2608.0
+LP objective = 2607.484000625551
+Using 104 patterns, solving MIP:
+elapsed time: 0.03236909 seconds
+MIP objective = 5143.0
+LP objective = 5142.340753401601
+Using 195 patterns, solving MIP:
+elapsed time: 0.069422402 seconds
+MIP objective = 9696.0
+elapsed time: 0.050716509 seconds
+LP objective = 9695.738512578479
 
 
 
