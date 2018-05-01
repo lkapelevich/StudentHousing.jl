@@ -80,10 +80,24 @@ m_one_stage = onestagemodel(problem_data)
 # Have a look at our solutions:
 println(getvalue(m_one_stage[:investment]))
 # [1.0, 1.0]
-println(find(getvalue(m_one_stage[:assignment][1,:])))
-# [6, 11]
-println(find(getvalue(m_one_stage[:assignment][2,:])))
-# [3]
+println(getvalue(m_one_stage[:assignment]))
+# [1, 6] = 1.0 <------------------
+# [1, 7] = 0.0
+# [1,11] = 1.0 <------------------
+# [1,12] = 0.0
+# [1,13] = 0.0
+# [2, 3] = 1.0 <------------------
+# [2, 4] = 0.0
+# [2, 5] = 0.0
+# [2, 6] = -0.0
+# [2, 7] = 0.0
+# [2, 8] = 0.0
+# [2, 9] = 0.0
+# [2,10] = 0.0
+# [2,11] = -0.0
+# [2,12] = 0.0
+# [2,13] = 0.0
+
 # We have chosen to invest in both houses and assigned the first to one
 # entity with preference pattern 6, and one with preference pattern 1.
 # We assigned the second house to someone with preference pattern 3.
@@ -95,7 +109,6 @@ p = problem_data.patterns_allow[6]
 #  3
 #  5
 p = problem_data.patterns_allow[11]
-println(StudentHousing.explicit_pattern(p, length(problem_data.all_characteristics)))
 # 4-element Array{Int64,1}:
 #  1
 #  2
@@ -130,12 +143,12 @@ end
 
 
 nbathrooms_range = collect(1:3)
-nbathrooms_frequency = Weights([1.0])
+nbathrooms_frequency = Weights([0.5; 0.4; 0.1])
 prices_range_pp = [800.0, 1000.0]
 area_ranges = [0.0, 700.0, 850.0]
-budget = 200.0
+budget = 1000.0
 
-for i = 1:4
+for i = 1:2
     nbedrooms_range, nbedrooms_frequency = bedrooms_scale(i)
     @time market_data = StudentHousing.MarketData(nbedrooms_range,
         nbedrooms_frequency, nbathrooms_range, nbathrooms_frequency,
@@ -145,7 +158,7 @@ for i = 1:4
     P = StudentHousing.get_npatterns(problem_data)
     println("Using $P patterns, solving MIP:")
     @time m_one_stage = onestagemodel(problem_data)
-    println("Assigned students = ", sum(sum(getvalue(m_one_stage[:assignment]))))
+    # println("Assigned students = ", getvalue(sum(sum(m_one_stage[:assignment]))))
     tic()
     @assert solve(m_one_stage) == :Optimal
     toc()
@@ -154,29 +167,56 @@ for i = 1:4
     println("LP objective = ", getobjectivevalue(m_one_stage))
 end
 
-Using 5 patterns, solving MIP:
-elapsed time: 0.005869044 seconds
-MIP objective = 221.0
-LP objective = 220.6994099433357
-Using 19 patterns, solving MIP:
-elapsed time: 0.007129354 seconds
-MIP objective = 872.0
-LP objective = 871.1601626430233
-Using 49 patterns, solving MIP:
-elapsed time: 0.018248958 seconds
-MIP objective = 2608.0
-LP objective = 2607.484000625551
-Using 104 patterns, solving MIP:
-elapsed time: 0.03236909 seconds
-MIP objective = 5143.0
-LP objective = 5142.340753401601
-Using 195 patterns, solving MIP:
-elapsed time: 0.069422402 seconds
-MIP objective = 9696.0
-elapsed time: 0.050716509 seconds
-LP objective = 9695.738512578479
+# 0.000005 seconds (1 allocation: 64 bytes)
+# 0.000097 seconds (327 allocations: 319.641 KiB)
+# Using 9 patterns, solving MIP:
+# 0.000358 seconds (5.49 k allocations: 358.078 KiB)
+# elapsed time: 0.004055526 seconds
+# MIP objective = 365.0
+# LP objective = 364.6178596198008
 
+# 0.000003 seconds (1 allocation: 64 bytes)
+# 0.410293 seconds (1.05 M allocations: 1.084 GiB, 25.35% gc time)
+# Using 329 patterns, solving MIP:
+# 0.014299 seconds (204.43 k allocations: 13.490 MiB, 28.94% gc time)
+# elapsed time: 0.04825205 seconds
+# MIP objective = 17218.0
+# LP objective = 17217.783978504925
 
+# 0.000017 seconds (1 allocation: 64 bytes)
+# too long outside of MIP, 2^54 potential patterns to process
 
+# Even when 2^ncharacteristics is too large to be stored, the
+# number of legal patterns we get is only in the hundrends, and the MIP takes
+# milliseconds to solve. The bottleneck is processing the patterns before we
+# even get to the MIP.
 
-# m_multi_stage = multistagemodel(problem_data)
+# Let's focus on the multistage problem for a bit.
+
+# ==============================================================================
+# Multistage, medium model.
+# ==============================================================================
+srand(1)
+nbedrooms_range = collect(1:2)
+nbedrooms_frequency = Weights([0.5, 0.5])
+nbathrooms_range = collect(1:2)
+nbathrooms_frequency = Weights([0.5; 0.5])
+prices_range_pp = [800.0, 1000.0]
+area_ranges = [0.0, 700.0, 850.0]
+market_data = StudentHousing.MarketData(nbedrooms_range,
+    nbedrooms_frequency, nbathrooms_range, nbathrooms_frequency,
+    prices_range_pp, area_ranges)
+
+budget = 1000.0
+
+problem_data = StudentHousingData(market_data, nhouses = 50, budget = budget,
+    demand_distribution = Uniform(0.0, 100.0), nstages = 10, nnoises = 3)
+
+m_multi_stage = multistagemodel(problem_data)
+solve(m_multi_stage, max_iterations = 5)
+
+# converges extremely quickly... and Benders vs Lagrangian bounds v close
+# IP: 148.660K LP: 148.651K
+
+# Delve into more detail in regards to column generation with constraint
+# generation

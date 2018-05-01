@@ -14,9 +14,18 @@ function house_fits_pattern(i::Int, p::Int, d::StudentHousingData)
     false
 end
 beds_needed(p::Int) = 1.0
+function house_allowedby(i::Int, d::StudentHousingData)
+    ret = Int[]
+    for p = 1:length(d.patterns_allow)
+      if house_fits_pattern(i, p, d)
+          push!(ret, p)
+      end
+    end
+    ret
+end
 
 # ==============================================================================
-# One stage, small version model
+# One stage
 
 function onestagemodel(d::StudentHousingData)
 
@@ -33,13 +42,12 @@ function onestagemodel(d::StudentHousingData)
     @variables(m, begin
         shortage[1:npatterns] >= 0
         investment[1:nhouses], Bin
-        assignment[1:nhouses, 1:npatterns] >= 0, Int
+        assignment[i=1:nhouses, p=house_allowedby(i,d)] >= 0, Int
     end)
 
     @constraints(m, begin
-        [p = 1:npatterns], shortage[p] == demand[p] - sum(assignment[i, p] for i = 1:nhouses)
-        [i = 1:nhouses, p = 1:npatterns], assignment[i, p] * beds_needed(p) <= house_fits_pattern(i, p, d) * investment[i] * beds_avail(i, houses)
-        [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p) for p = 1:npatterns) <= investment[i] * beds_avail(i, houses)
+        [p = 1:npatterns], shortage[p] == demand[p] - sum(assignment[i, p] for i = 1:nhouses if house_fits_pattern(i, p, d))
+        [i = 1:nhouses], sum(beds_needed(p) * assignment[i, p] for p = 1:npatterns if house_fits_pattern(i, p, d)) <= investment[i] * beds_avail(i, houses)
         sum(investment[i] * maintenance(i, houses) for i = 1:nhouses) <= d.budget
     end)
 
@@ -62,7 +70,7 @@ function multistagemodel(d::StudentHousingData)
     # The number of only legal patterns
     npatterns = length(d.patterns_allow)
 
-    m = SDDPModel(stages = nstages,
+    m = SDDPModel(stages = d.nstages,
             objective_bound = 0.0,
             sense=:Min,
             solver = GurobiSolver(OutputFlag=0)) do sp, stage
@@ -76,11 +84,11 @@ function multistagemodel(d::StudentHousingData)
         end)
 
         if stage == 1
-            @constraint(sp, [p = 1:npatterns], shortage[p] + sum(assignment[i, p] for i = 1:nhouses) <= demands[p, 1, 1])
+            @constraint(sp, [p = 1:npatterns], shortage[p] + sum(house_fits_pattern(i, p, d) * assignment[i, p] for i = 1:nhouses) <= demands[p, 1, 1])
         else
             for p = 1:npatterns
                 @rhsnoise(sp, D = demands[p, :, stage],
-                    shortage[p] + sum(assignment[i, p] for i = 1:nhouses) == D)
+                    shortage[p] + sum(house_fits_pattern(i, p, d) * assignment[i, p] for i = 1:nhouses) == D)
             end
         end
 
@@ -88,8 +96,7 @@ function multistagemodel(d::StudentHousingData)
             # Can't uninvest
             investment0 .<= investment
             # Only legal assignments
-            [i = 1:nhouses, p = 1:npatterns], assignment[i, p] * beds_needed(p) <= house_fits_pattern(i, p, d) * investment[i] * beds_avail(i, houses)
-            [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p) for  p = 1:npatterns) <= investment[i] * beds_avail(i, houses)
+            [i = 1:nhouses], sum(house_fits_pattern(i, p, d) * assignment[i, p] * beds_needed(p) for  p = 1:npatterns) <= investment[i] * beds_avail(i, houses)
             # Budget constraint
             sum(investment[i] * maintenance(i, houses) for i = 1:nhouses) <= d.budget
         end)
@@ -97,7 +104,7 @@ function multistagemodel(d::StudentHousingData)
         # Minimize all unmet demand
         @stageobjective(sp, sum(shortage))
 
-        setSDDiPsolver!(sp, method=SubgradientMethod(upperbound))
+        setSDDiPsolver!(sp, method=KelleyMethod(), pattern = Pattern(benders = 0, lagrangian=1))
     end
     m
 

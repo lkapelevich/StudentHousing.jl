@@ -183,6 +183,7 @@ end
 
 
 struct StudentHousingData
+    nstages::Int
     budget::Float64
     all_characteristics::Vector{Characteristic}
     houses::Vector{House}
@@ -231,8 +232,8 @@ function StudentHousingData(market_data; nstages::Int=1,
     npatterns = length(patterns_sparse)
     # Generate demand data
     demands = getdemand(npatterns, nnoises, nstages, demand_distribution)
-    StudentHousingData(budget, all_characteristics, houses, market_data,
-        demands, patterns_sparse)
+    StudentHousingData(nstages, budget, all_characteristics, houses,
+        market_data, demands, patterns_sparse)
 end
 
 # Some helper functions
