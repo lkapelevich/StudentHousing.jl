@@ -16,7 +16,8 @@ AREA_RANGES = [0.0]
 # Prep data
 market_data = StudentHousing.MarketData(NBEDROOMS_RANGE, NBDROOMS_FREQCY, NBATHROOMS_RANGE, NBATHROOMS_FREQCY, PRICE_RANGES_PP, AREA_RANGES)
 budget = 1e6
-problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget, demand_distribution = Uniform())
+nhouses = 2
+problem_data = StudentHousingData(market_data, nhouses = nhouses, budget = budget, demand_distribution = Uniform())
 
 @testset "Helper functions" begin
     npatterns = StudentHousing.get_npatterns(problem_data)
@@ -59,5 +60,31 @@ end
     @test getvalue(m_one_stage[:assignment][1, 11]) ≈ 1.0
     @test getvalue(m_one_stage[:assignment][2,  3]) ≈ 1.0
 
+end
 
+@testset "GAP" begin
+    nhouses = 3
+    problem_data = StudentHousingData(market_data, nhouses = nhouses, budget = budget, demand_distribution = Uniform())
+    m, V_generated, λ_generated, house_choice = solve_column_generation(problem_data)
+    results = zeros(nhouses, length(problem_data.patterns_allow))
+    for k = 1:nhouses
+        if getvalue(m[:λ][k]) ≈ 1.0
+            results[k, StudentHousing.house_allowedby(k, problem_data)[1]] = 1.0
+        end
+    end
+    for k = 1:length(V_generated)
+        if getvalue(λ_generated[k]) ≈ 1.0
+            # Find the assignment that we picked for our house
+            patterns = find(V_generated[k] .≈ 1.0)
+            # Check the house index
+            h = house_choice[k]
+            # Mark the assignment
+            results[h, patterns] .= 1.0
+        end
+    end
+    for h = 1:nhouses
+        for p in find(results[h,:] .≈ 1.0)
+            @test p in StudentHousing.house_allowedby(h, problem_data)
+        end
+    end
 end

@@ -7,7 +7,7 @@ using StatsBase, Distributions,
 
 export
     StudentHousingData,
-    onestagemodel, multistagemodel,
+    onestagemodel, multistagemodel, solve_column_generation,
     house_allowedby, house_fits_pattern, beds_needed, beds_avail
 
 include("housing/binary_hacks.jl")

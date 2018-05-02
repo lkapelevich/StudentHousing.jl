@@ -106,10 +106,15 @@ Get the houses that we expect will be available on the market. Since we have no
 real data, we generate some synthetic ones here.
 """
 function gethouses(nhouses::Int, md::MarketData)
+    @assert minimum(md.bathrooms_range) <= minimum(md.bedrooms_range)
     houses = House[]
     for h = 1:nhouses
         nbedrooms = sample(md.bedrooms_range, md.bedrooms_frequency)
-        nbathrooms = sample(md.bathrooms_range, md.bathrooms_frequency)
+        nbathrooms = 1
+        while true
+            nbathrooms = sample(md.bathrooms_range, md.bathrooms_frequency)
+            (nbathrooms <= nbedrooms) && break
+        end
         area = avg_area(nbedrooms, nbathrooms) + rand(Normal(0.0, 10.0))
         rent = avg_rent(nbedrooms, nbathrooms, area) + rand(Normal(0.0, 100.0))
         push!(houses, House(nbedrooms, nbathrooms, rent, area))
