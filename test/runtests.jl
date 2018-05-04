@@ -64,8 +64,8 @@ end
 
 @testset "GAP" begin
     nhouses = 3
-    problem_data = StudentHousingData(market_data, nhouses = nhouses, budget = budget, demand_distribution = Uniform())
-    m, V_generated, λ_generated, house_choice = solve_column_generation(problem_data)
+    problem_data = StudentHousingData(market_data, nhouses = nhouses, budget = budget, demand_distribution = Uniform(0.9, 1.1))
+    m, V_generated, λ_generated, house_choice = solve_house_generation(problem_data)
     results = zeros(nhouses, length(problem_data.patterns_allow))
     for k = 1:nhouses
         if getvalue(m[:λ][k]) ≈ 1.0

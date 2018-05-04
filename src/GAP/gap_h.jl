@@ -7,10 +7,10 @@ function gap_model(d::StudentHousingData)
     nhouses = length(d.houses)
     npatterns = length(d.patterns_allow)
     m = Model(solver = GurobiSolver(OutputFlag=0))
-    @variable(m, assignment[1:nhouses, 1:npatterns], Bin)
+    @variable(m, assignment[1:nhouses, 1:npatterns] >= 0, Int)
     @constraints(m, begin
         [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p) for p = 1:npatterns) <= beds_avail(i, d.houses)
-        [p = 1:npatterns], sum(assignment[:, p]) <= 1
+        [p = 1:npatterns], sum(assignment[:, p]) <= d.demands[p, 1, 1]
         [i = 1:nhouses, p = 1:npatterns], assignment[i, p] <= house_fits_pattern(i, p, d)
     end)
     @objective(m, Max, sum(sum(assignment)))
@@ -18,11 +18,11 @@ function gap_model(d::StudentHousingData)
 end
 
 """
-    solve_column_generation(d::StudentHousingData)
+    solve_house_generation(d::StudentHousingData)
 
 Solve generalized assignment problem with column generation.
 """
-function solve_column_generation(d::StudentHousingData)
+function solve_house_generation(d::StudentHousingData)
 
     nhouses = length(d.houses)
     npatterns = length(d.patterns_allow)
@@ -50,7 +50,7 @@ function solve_column_generation(d::StudentHousingData)
     @variable(m, 0 <= λ[i in h_init] <= 1)
     @objective(m, Max, sum(λ[i] * dot(c, V[:, i]) for i in h_init))
     @constraints(m, begin
-        capsupply[p = 1:npatterns], sum(λ[i] * V[p, i] for i in h_init) <= 1
+        capsupply[p = 1:npatterns], sum(λ[i] * V[p, i] for i in h_init) <= d.demands[p, 1, 1]
         convexity[i in h_init], sum(λ[i]) <= 1
     end)
 
@@ -59,7 +59,7 @@ function solve_column_generation(d::StudentHousingData)
     # =========================================================================
     function get_kp(i::Int, π::Vector{Float64})
         sp = Model(solver = GurobiSolver(OutputFlag=0))
-        @variable(sp, v[p = 1:npatterns], Bin)
+        @variable(sp, v[p = 1:npatterns] >= 0, Int)
         @constraints(sp, begin
             sum(v[p] * beds_needed(p) for p = 1:npatterns) <= beds_avail(i, d.houses)
             [p = 1:npatterns], v[p] <= house_fits_pattern(i, p, d)

@@ -14,7 +14,8 @@ area_ranges = [0.0]
 market_data = StudentHousing.MarketData(nbedrooms_range, nbedrooms_frequency,
     nbathrooms_range, nbathrooms_frequency, prices_range_pp, area_ranges)
 budget = 1e6
-problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget, demand_distribution = Uniform())
+problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget,
+                  demand_distribution = Uniform(0.9, 1.1))
 
 d = problem_data
 nhouses = length(d.houses)
@@ -22,7 +23,7 @@ nhouses = length(d.houses)
 # =============================================================================
 # Solve problem
 # =============================================================================
-m, V_generated, λ_generated, house_choice = solve_column_generation(d)
+m, V_generated, λ_generated, house_choice = solve_house_generation(d)
 
 
 # =============================================================================
@@ -74,7 +75,7 @@ StudentHousing.house_allowedby(1, d)
 #  13
 
 println("House 2 assigned to:", find(results[2,:] .≈ 1.0))
-# House 2 assigned to:[3]
+# House 2 assigned to:[4]
 # sanity check
 StudentHousing.house_allowedby(2, d)
 # 11-element Array{Int64,1}:
@@ -96,6 +97,7 @@ StudentHousing.house_allowedby(2, d)
 # Run a sanity check by solving the GAP with Gurobi
 # This is different to just setting a very big budget and demand=0 in the other
 # model because of the way we defined shortage to be nonnegative.
+m_master = Model()
 
 function bedrooms_scale(i::Int)
     # Number of possible bedrooms = 1 -> i
@@ -115,17 +117,20 @@ prices_range_pp = [800.0, 1000.0]
 area_ranges = [0.0, 700.0, 850.0]
 budget = 1000.0
 
+nhouses = 50
+
 for i = 1:2
     nbedrooms_range, nbedrooms_frequency = bedrooms_scale(i)
     @time market_data = StudentHousing.MarketData(nbedrooms_range,
         nbedrooms_frequency, nbathrooms_range, nbathrooms_frequency,
         prices_range_pp, area_ranges)
-    @time problem_data = StudentHousingData(market_data, nhouses = 50, budget = budget,
-        demand_distribution = Uniform(0.0, 100.0))
+    @time problem_data = StudentHousingData(market_data, nhouses = nhouses, budget = budget,
+        demand_distribution = Uniform(0.9, 1.1))
+    d = problem_data
     P = StudentHousing.get_npatterns(problem_data)
     println("Using $P patterns, solving MIP:")
     tic()
-    m_master, V_generated, λ_generated, house_choice = solve_column_generation(problem_data)
+    m_master, V_generated, λ_generated, house_choice = solve_house_generation(problem_data)
     toc()
     println("CG objective = ", getobjectivevalue(m_master))
 end
@@ -150,21 +155,38 @@ end
 # elapsed time: 102.900935712 seconds
 # CG objective = 40.0
 
+results = zeros(nhouses, length(d.patterns_allow))
+for k = 1:nhouses
+    if getvalue(m_master[:λ][k]) ≈ 1.0
+        results[k, StudentHousing.house_allowedby(k, d)[1]] = 1.0
+    end
+end
+# Check all the other columns we added
+for k = 1:length(V_generated)
+    if getvalue(λ_generated[k]) ≈ 1.0
+        # Find the assignment that we picked for our house
+        patterns = find(V_generated[k] .≈ 1.0)
+        # Check the house index
+        h = house_choice[k]
+        # Mark the assignment
+        results[h, patterns] .= 1.0
+    end
+end
+for h = 1:nhouses
+    println("House $h assigned to:", find(results[h,:] .≈ 1.0))
+end
+
 # Sanity check, solve original problem with very large budget and demand=1
 srand(1)
-nbathrooms_range = collect(1:3)
-nbathrooms_frequency = Weights([0.5; 0.4; 0.1])
-prices_range_pp = [800.0, 1000.0]
-area_ranges = [0.0, 700.0, 850.0]
-budget = 5e8
-
+gap_model = Model()
 for i = 1:2
     nbedrooms_range, nbedrooms_frequency = bedrooms_scale(i)
     @time market_data = StudentHousing.MarketData(nbedrooms_range,
         nbedrooms_frequency, nbathrooms_range, nbathrooms_frequency,
         prices_range_pp, area_ranges)
-    @time problem_data = StudentHousingData(market_data, nhouses = 50, budget = budget,
-        demand_distribution = Uniform(0.0, 0.1))
+    @time problem_data = StudentHousingData(market_data, nhouses = nhouses, budget = budget,
+        demand_distribution = Uniform(0.9, 1.1))
+    d = problem_data
     P = StudentHousing.get_npatterns(problem_data)
     println("Using $P patterns, solving MIP:")
     @time gap_model = StudentHousing.gap_model(problem_data)
@@ -186,3 +208,7 @@ end
 #   0.015228 seconds (234.89 k allocations: 14.217 MiB)
 # elapsed time: 0.087777319 seconds
 # MIP objective = 40.0
+
+for h = 1:nhouses
+    println("House $h assigned to:", find(getvalue.(gap_model[:assignment])[h,:] .≈ 1.0))
+end
