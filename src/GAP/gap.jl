@@ -1,5 +1,24 @@
 """
-    function solve_column_generation(d::StudentHousingData)
+    gap_model(d::StudentHousingData)
+
+For debugging purposes get cap model without column generation framework.
+"""
+function gap_model(d::StudentHousingData)
+    nhouses = length(d.houses)
+    npatterns = length(d.patterns_allow)
+    m = Model(solver = GurobiSolver(OutputFlag=0))
+    @variable(m, assignment[1:nhouses, 1:npatterns], Bin)
+    @constraints(m, begin
+        [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p) for p = 1:npatterns) <= beds_avail(i, d.houses)
+        [p = 1:npatterns], sum(assignment[:, p]) <= 1
+        [i = 1:nhouses, p = 1:npatterns], assignment[i, p] <= house_fits_pattern(i, p, d)
+    end)
+    @objective(m, Max, sum(sum(assignment)))
+    m
+end
+
+"""
+    solve_column_generation(d::StudentHousingData)
 
 Solve generalized assignment problem with column generation.
 """
@@ -78,8 +97,6 @@ function solve_column_generation(d::StudentHousingData)
                 best_i = i
             end
         end
-
-        @show best_rc
 
         best_v = getvalue(best_sp[:v])
         push!(V_generated, best_v)

@@ -167,21 +167,20 @@ for i = 1:2
     println("LP objective = ", getobjectivevalue(m_one_stage))
 end
 
-# 0.000005 seconds (1 allocation: 64 bytes)
-# 0.000097 seconds (327 allocations: 319.641 KiB)
+# 0.000004 seconds (1 allocation: 64 bytes)
+# 0.000155 seconds (327 allocations: 319.641 KiB)
 # Using 9 patterns, solving MIP:
-# 0.000358 seconds (5.49 k allocations: 358.078 KiB)
-# elapsed time: 0.004055526 seconds
-# MIP objective = 365.0
-# LP objective = 364.6178596198008
-
-# 0.000003 seconds (1 allocation: 64 bytes)
-# 0.410293 seconds (1.05 M allocations: 1.084 GiB, 25.35% gc time)
+# 0.000444 seconds (3.66 k allocations: 209.766 KiB)
+# elapsed time: 0.016997735 seconds
+# MIP objective = 309.0
+# LP objective = 308.39493853636816
+# 0.000005 seconds (1 allocation: 64 bytes)
+# 1.222919 seconds (1.05 M allocations: 1.084 GiB, 25.72% gc time)
 # Using 329 patterns, solving MIP:
-# 0.014299 seconds (204.43 k allocations: 13.490 MiB, 28.94% gc time)
-# elapsed time: 0.04825205 seconds
-# MIP objective = 17218.0
-# LP objective = 17217.783978504925
+# 0.011981 seconds (78.52 k allocations: 4.183 MiB)
+# elapsed time: 0.045735724 seconds
+# MIP objective = 16068.0
+# LP objective = 16067.796766960571
 
 # 0.000017 seconds (1 allocation: 64 bytes)
 # too long outside of MIP, 2^54 potential patterns to process
