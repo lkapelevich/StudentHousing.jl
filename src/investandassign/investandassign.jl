@@ -1,33 +1,36 @@
 """
-    gap_model(d::StudentHousingData)
+    ia_model(d::StudentHousingData)
 
-For debugging purposes get gap model without column generation framework.
+For debugging purposes get ia model without column generation framework.
 """
-function gap_model(d::StudentHousingData)
+function ia_model(d::StudentHousingData)
     nhouses = length(d.houses)
     npatterns = length(d.patterns_allow)
     m = Model(solver = GurobiSolver(OutputFlag=0))
-    @variable(m, assignment[1:nhouses, 1:npatterns] >= 0, Int)
+    @variables(m, begin
+        assignment[1:nhouses, 1:npatterns] >= 0, Int
+        invest[1:nhouses]
+    end)
     @constraints(m, begin
-        [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p) for p = 1:npatterns) <= beds_avail(i, d.houses)
+        [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p) for p = 1:npatterns) <= beds_avail(i, d.houses) * invest[i]
         [p = 1:npatterns], sum(assignment[:, p]) <= d.demands[p, 1, 1]
         [i = 1:nhouses, p = 1:npatterns], assignment[i, p] <= house_fits_pattern(i, p, d)
+        sum(invest[i] * maintenance(i, d.houses) for i = 1:nhouses) <= d.budget
     end)
     @objective(m, Max, sum(sum(assignment)))
     m
 end
 
 """
-    solve_house_generation(d::StudentHousingData)
+    solve_ia_generation(d::StudentHousingData)
 
-Solve generalized assignment problem with column generation.
+Solve problem of just investing and assigning with column generation.
 """
-function solve_house_generation(d::StudentHousingData)
+function solve_ia_generation(d::StudentHousingData)
 
     nhouses = length(d.houses)
     npatterns = length(d.patterns_allow)
 
-    h_init = collect(1:nhouses)
     # Create an initial set of columns by randomly picking the first entity
     # allowed for any house
     V = zeros(npatterns, nhouses)
@@ -47,11 +50,16 @@ function solve_house_generation(d::StudentHousingData)
     # Master problem
     # =========================================================================
     m = Model(solver = GurobiSolver(OutputFlag=0))
-    @variable(m, 0 <= λ[i in h_init] <= 1)
-    @objective(m, Max, sum(λ[i] * dot(c, V[:, i]) for i in h_init))
+    @variables(m, begin
+        0 <= λ[1:nhouses] <= 1
+        0 <= invest[1:nhouses] <= 1
+    end)
+    @objective(m, Max, sum(λ[i] * dot(c, V[:, i]) for i in 1:nhouses))
     @constraints(m, begin
-        capsupply[p = 1:npatterns], sum(λ[i] * V[p, i] for i in h_init) <= d.demands[p, 1, 1]
-        convexity[i in h_init], sum(λ[i]) <= 1
+        capsupply[p = 1:npatterns], sum(λ[i] * V[p, i] for i in 1:nhouses) <= d.demands[p, 1, 1]
+        convexity[i = 1:nhouses], sum(λ[i]) <= 1
+        ifinvested[i = 1:nhouses], λ[i] <= invest[i] # V is optional
+        budget, sum(invest[i] * maintenance(i, d.houses) for i = 1:nhouses) <= d.budget
     end)
 
     # =========================================================================
@@ -83,6 +91,7 @@ function solve_house_generation(d::StudentHousingData)
         solve(m)
         π = getdual(m[:capsupply])
         w = getdual(m[:convexity])
+        ρ = getdual(m[:ifinvested])
 
         # Solve a subproblem for each house, get the column with the best reduced
         # cost over all houses
@@ -90,7 +99,7 @@ function solve_house_generation(d::StudentHousingData)
         for i = 1:nhouses
             sp = get_kp(i, π)
             @assert solve(sp) == :Optimal
-            col_rc = getobjectivevalue(sp) - w[i]
+            col_rc = getobjectivevalue(sp) - w[i] - ρ[i]
             if col_rc > best_rc
                 best_rc = col_rc
                 best_sp = sp
@@ -108,8 +117,8 @@ function solve_house_generation(d::StudentHousingData)
                 upperbound = 1.0,
                 basename="_λnew_$iter",
                 objective = dot(c, best_v),
-                inconstraints = [capsupply; convexity[best_i]],
-                coefficients = [best_v; 1.0]
+                inconstraints = [capsupply; convexity[best_i]; ifinvested[best_i]],
+                coefficients = [best_v; 1.0; 1.0]
               )
         )
         iter += 1

@@ -62,29 +62,56 @@ end
 
 end
 
-@testset "GAP" begin
+@testset "Column Generation Approaches" begin
     nhouses = 3
     problem_data = StudentHousingData(market_data, nhouses = nhouses, budget = budget, demand_distribution = Uniform(0.9, 1.1))
-    m, V_generated, λ_generated, house_choice = solve_house_generation(problem_data)
-    results = zeros(nhouses, length(problem_data.patterns_allow))
-    for k = 1:nhouses
-        if getvalue(m[:λ][k]) ≈ 1.0
-            results[k, StudentHousing.house_allowedby(k, problem_data)[1]] = 1.0
+    @testset "GAP" begin
+        m, V_generated, λ_generated, house_choice = solve_house_generation(problem_data)
+        results = zeros(nhouses, length(problem_data.patterns_allow))
+        for k = 1:nhouses
+            if getvalue(m[:λ][k]) ≈ 1.0
+                results[k, StudentHousing.house_allowedby(k, problem_data)[1]] = 1.0
+            end
+        end
+        for k = 1:length(V_generated)
+            if getvalue(λ_generated[k]) ≈ 1.0
+                # Find the assignment that we picked for our house
+                patterns = find(V_generated[k] .≈ 1.0)
+                # Check the house index
+                h = house_choice[k]
+                # Mark the assignment
+                results[h, patterns] .= 1.0
+            end
+        end
+        for h = 1:nhouses
+            for p in find(results[h,:] .≈ 1.0)
+                @test p in StudentHousing.house_allowedby(h, problem_data)
+            end
         end
     end
-    for k = 1:length(V_generated)
-        if getvalue(λ_generated[k]) ≈ 1.0
-            # Find the assignment that we picked for our house
-            patterns = find(V_generated[k] .≈ 1.0)
-            # Check the house index
-            h = house_choice[k]
-            # Mark the assignment
-            results[h, patterns] .= 1.0
+
+    @testset "Invest and Assign" begin
+        m, V_generated, λ_generated, house_choice = solve_ia_generation(problem_data)
+        results = zeros(nhouses, length(problem_data.patterns_allow))
+        for k = 1:nhouses
+            if getvalue(m[:λ][k]) ≈ 1.0
+                results[k, StudentHousing.house_allowedby(k, problem_data)[1]] = 1.0
+            end
         end
-    end
-    for h = 1:nhouses
-        for p in find(results[h,:] .≈ 1.0)
-            @test p in StudentHousing.house_allowedby(h, problem_data)
+        for k = 1:length(V_generated)
+            if getvalue(λ_generated[k]) ≈ 1.0
+                # Find the assignment that we picked for our house
+                patterns = find(V_generated[k] .≈ 1.0)
+                # Check the house index
+                h = house_choice[k]
+                # Mark the assignment
+                results[h, patterns] .= 1.0
+            end
+        end
+        for h = 1:nhouses
+            for p in find(results[h,:] .≈ 1.0)
+                @test p in StudentHousing.house_allowedby(h, problem_data)
+            end
         end
     end
 end
