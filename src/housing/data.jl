@@ -186,6 +186,13 @@ function make_all_patterns(all_characteristics::Vector{Characteristic})
     all_patterns
 end
 
+function beds_needed(p::Int, easy::Bool=true)
+    if easy
+        ones(p)
+    else
+        round.(rand(Uniform(1.0, 3.0), p))
+    end
+end
 
 struct StudentHousingData
     nstages::Int
@@ -195,6 +202,7 @@ struct StudentHousingData
     market_data::MarketData
     demands::Array{Float64,3}
     patterns_allow::Vector{Vector{Int}}
+    beds_needed::Vector{Int}
 end
 
 function check_data(nhouses::Int, nnoises::Int)
@@ -214,7 +222,8 @@ function StudentHousingData(market_data; nstages::Int=1,
                             nhouses::Int=1,
                             nnoises::Int=1,
                             demand_distribution::ContinuousDistribution=Normal(100,10),
-                            budget::Float64=1e6
+                            budget::Float64=1e6,
+                            easy::Bool=true
                         )
 
     check_data(nhouses, nnoises) || error("Specified non-positive values for positive parameters.")
@@ -232,13 +241,14 @@ function StudentHousingData(market_data; nstages::Int=1,
     for i = 1:npatterns
         patterns_sparse[i] = find(patterns[i] .> 0)
     end
+    bedsneeded = beds_needed(npatterns, easy)
 
     # The number of patterns is the number of logically sound patterns
     npatterns = length(patterns_sparse)
     # Generate demand data
     demands = getdemand(npatterns, nnoises, nstages, demand_distribution)
     StudentHousingData(nstages, budget, all_characteristics, houses,
-        market_data, demands, patterns_sparse)
+        market_data, demands, patterns_sparse, bedsneeded)
 end
 
 # Some helper functions
@@ -247,3 +257,4 @@ beds_avail(i::Int, houses::Vector{House}) = houses[i].nbedrooms
 maintenance(i::Int, houses::Vector{House}) = maintenance(houses[i])
 get_ncharacteristics(d::StudentHousingData) = length(d.all_characteristics)
 get_npatterns(d::StudentHousingData) = length(d.patterns_allow)
+beds_needed(p::Int, d::StudentHousingData) = d.beds_needed[p]

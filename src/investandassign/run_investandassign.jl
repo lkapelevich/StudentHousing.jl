@@ -5,7 +5,8 @@ srand(32)
 # =============================================================================
 # Data
 # =============================================================================
-nbedrooms_range = collect(1:2)
+nhouses = 100
+nbedrooms_range = collect(1:3)
 nbedrooms_frequency = Weights([0.5, 0.5])
 nbathrooms_range = collect(1:2)
 nbathrooms_frequency = Weights([0.5, 0.5])
@@ -13,9 +14,9 @@ prices_range_pp = [800.0, 1000.0]
 area_ranges = [0.0]
 market_data = StudentHousing.MarketData(nbedrooms_range, nbedrooms_frequency,
     nbathrooms_range, nbathrooms_frequency, prices_range_pp, area_ranges)
-budget = 1e6
-problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget,
-                  demand_distribution = Uniform(0.9, 1.1))
+budget = 1e5
+problem_data = StudentHousingData(market_data, nhouses = nhouses, budget = budget,
+                  demand_distribution = Uniform(0.9, 1.1), easy=false)
 
 d = problem_data
 nhouses = length(d.houses)
@@ -29,7 +30,7 @@ m, V_generated, λ_generated, house_choice = solve_ia_generation(d)
 # =============================================================================
 # Look at solution
 # =============================================================================
-getobjectivevalue(m)
+println(getobjectivevalue(m))
 
 # If not integer...
 for i = 1:nhouses
@@ -90,3 +91,7 @@ StudentHousing.house_allowedby(2, d)
 #  11
 #  12
 #  13
+
+for i = 1:nhouses
+    println(println("House $i assigned to:", find(results[i,:] .≈ 1.0)))
+end

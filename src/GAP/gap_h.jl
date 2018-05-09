@@ -9,7 +9,7 @@ function gap_model(d::StudentHousingData)
     m = Model(solver = GurobiSolver(OutputFlag=0))
     @variable(m, assignment[1:nhouses, 1:npatterns] >= 0, Int)
     @constraints(m, begin
-        [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p) for p = 1:npatterns) <= beds_avail(i, d.houses)
+        [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p, d) for p = 1:npatterns) <= beds_avail(i, d.houses)
         [p = 1:npatterns], sum(assignment[:, p]) <= d.demands[p, 1, 1]
         [i = 1:nhouses, p = 1:npatterns], assignment[i, p] <= house_fits_pattern(i, p, d)
     end)
@@ -61,7 +61,7 @@ function solve_house_generation(d::StudentHousingData)
         sp = Model(solver = GurobiSolver(OutputFlag=0))
         @variable(sp, v[p = 1:npatterns] >= 0, Int)
         @constraints(sp, begin
-            sum(v[p] * beds_needed(p) for p = 1:npatterns) <= beds_avail(i, d.houses)
+            sum(v[p] * beds_needed(p, d) for p = 1:npatterns) <= beds_avail(i, d.houses)
             [p = 1:npatterns], v[p] <= house_fits_pattern(i, p, d)
         end)
         @objective(sp, Max, dot((c - π), v))

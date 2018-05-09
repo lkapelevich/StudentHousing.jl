@@ -13,7 +13,7 @@ function house_fits_pattern(i::Int, p::Int, d::StudentHousingData)
     end
     false
 end
-beds_needed(p::Int) = 1.0
+
 function house_allowedby(i::Int, d::StudentHousingData)
     ret = Int[]
     for p = 1:length(d.patterns_allow)
@@ -47,7 +47,7 @@ function onestagemodel(d::StudentHousingData)
 
     @constraints(m, begin
         [p = 1:npatterns], shortage[p] == demand[p] - sum(assignment[i, p] for i = 1:nhouses if house_fits_pattern(i, p, d))
-        [i = 1:nhouses], sum(beds_needed(p) * assignment[i, p] for p = 1:npatterns if house_fits_pattern(i, p, d)) <= investment[i] * beds_avail(i, houses)
+        [i = 1:nhouses], sum(beds_needed(p, d) * assignment[i, p] for p = 1:npatterns if house_fits_pattern(i, p, d)) <= investment[i] * beds_avail(i, houses)
         sum(investment[i] * maintenance(i, houses) for i = 1:nhouses) <= d.budget
     end)
 
@@ -96,7 +96,7 @@ function multistagemodel(d::StudentHousingData)
             # Can't uninvest
             investment0 .<= investment
             # Only legal assignments
-            [i = 1:nhouses], sum(house_fits_pattern(i, p, d) * assignment[i, p] * beds_needed(p) for  p = 1:npatterns) <= investment[i] * beds_avail(i, houses)
+            [i = 1:nhouses], sum(house_fits_pattern(i, p, d) * assignment[i, p] * beds_needed(p, d) for  p = 1:npatterns) <= investment[i] * beds_avail(i, houses)
             # Budget constraint
             sum(investment[i] * maintenance(i, houses) for i = 1:nhouses) <= d.budget
         end)
