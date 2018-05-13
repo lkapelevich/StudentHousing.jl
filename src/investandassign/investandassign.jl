@@ -9,7 +9,7 @@ function ia_model(d::StudentHousingData)
     m = Model(solver = GurobiSolver(OutputFlag=0))
     @variables(m, begin
         assignment[1:nhouses, 1:npatterns] >= 0, Int
-        invest[1:nhouses]
+        invest[1:nhouses], Bin
     end)
     @constraints(m, begin
         [i = 1:nhouses], sum(assignment[i, p] * beds_needed(p, d) for p = 1:npatterns) <= beds_avail(i, d.houses) * invest[i]

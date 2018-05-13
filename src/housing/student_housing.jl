@@ -196,20 +196,20 @@ end
 # Multistage, medium model.
 # ==============================================================================
 srand(1)
-nbedrooms_range = collect(1:2)
-nbedrooms_frequency = Weights([0.5, 0.5])
+nbedrooms_range = collect(1:3)
+nbedrooms_frequency = Weights([0.5, 0.5, 0.25])
 nbathrooms_range = collect(1:2)
 nbathrooms_frequency = Weights([0.5; 0.5])
 prices_range_pp = [800.0, 1000.0]
-area_ranges = [0.0, 700.0, 850.0]
+area_ranges = [0.0, 700.0]
 market_data = StudentHousing.MarketData(nbedrooms_range,
     nbedrooms_frequency, nbathrooms_range, nbathrooms_frequency,
     prices_range_pp, area_ranges)
 
 budget = 1000.0
 
-problem_data = StudentHousingData(market_data, nhouses = 50, budget = budget,
-    demand_distribution = Uniform(0.0, 100.0), nstages = 10, nnoises = 3)
+problem_data = StudentHousingData(market_data, nhouses = 100, budget = budget,
+    demand_distribution = Uniform(0.0, 100.0), nstages = 10, nnoises = 10)
 
 m_multi_stage = multistagemodel(problem_data)
 solve(m_multi_stage, max_iterations = 5)

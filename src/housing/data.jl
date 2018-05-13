@@ -22,16 +22,6 @@ struct MarketData
     area_range::Vector{Float64}
 end
 
-# # Market data
-# NBEDROOMS_RANGE = collect(1:7)
-# NBDROOMS_FREQCY = WeightVec([0.0078125, 0.5,  0.25,  0.125,  0.0625,  0.03125,  0.015625])
-# NBATHROOMS_RANGE = collect(1:5)
-# NBATHROOMS_FREQCY = WeightVec([0.5,  0.25,  0.125,  0.0625,  0.0625])
-# PRICE_RANGES_PP =
-#     [800 1000 1300 1500 1800 2200]
-# AREA_RANGES =
-#     [700  800 900 1000 1200 1400]
-
 """
     maintenance(h::House)
 
@@ -95,10 +85,7 @@ function get_all_characteristics(md::MarketData)
     end
     all_possible_characteristics
 end
-# C = length(all_possible_characteristics)
-# println(length(C)) # 3150
 
-# There are 100 houses/apartments this semester
 """
     gethouses(nhouses::Int)
 
