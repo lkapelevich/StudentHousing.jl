@@ -29,9 +29,7 @@ budget = 1e6
 
 # Generate a structure holding all of our problem data:
 problem_data = StudentHousingData(market_data, nhouses = 2, budget = budget, demand_distribution = Uniform())
-# We created 2 houses to choose from. Later we will assume that houses
-# available are deterministic, (we will always find enough on the market), and
-# our bottleneck is the budget constraint.
+# We chose to create 2 houses to choose from.
 
 # Have a look at some of the things we stored
 println(problem_data.houses)
@@ -65,8 +63,9 @@ println(problem_data.all_characteristics)
 # possible). (TODO)
 
 # If we permitted any combination of approving/disapproving a characteristic,
-# we would have 2^6 = 64 preference patterns. However we have cached a reference
-# to all the preference patterns that make logical sense
+# we would have 2^6 = 64 preference patterns. However we have cached information
+# only about preference patterns that make logical sense.
+
 # julia> println(length(problem_data.patterns_allow))
 # 13
 # So 13 patterns don't allow a person to be OK with characteristic x but not OK
@@ -102,7 +101,7 @@ println(getvalue(m_one_stage[:assignment]))
 # entity with preference pattern 6, and one with preference pattern 1.
 # We assigned the second house to someone with preference pattern 3.
 
-# Some sanity checks:
+# Sanity check:
 p = problem_data.patterns_allow[6]
 # 3-element Array{Int64,1}:
 #  1

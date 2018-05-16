@@ -56,10 +56,7 @@ function onestagemodel(d::StudentHousingData)
 end
 
 # ==============================================================================
-# Two-stage with maybe some BDD cuts for fun.
-
-# ==============================================================================
-# Multistage work in progress
+# Multistage
 function multistagemodel(d::StudentHousingData)
 
     houses = d.houses
