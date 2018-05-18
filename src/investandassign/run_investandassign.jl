@@ -3,7 +3,7 @@ using StudentHousing, StatsBase, Distributions, JuMP, Gurobi
 srand(32)
 
 # =============================================================================
-# Data
+# Toy problem data
 # =============================================================================
 nhouses = 50
 nbedrooms_range = collect(1:3)
@@ -27,7 +27,7 @@ m1 = StudentHousing.ia_model(d)
 getobjectivevalue(m1)
 
 # =============================================================================
-# Solve problem
+# Solve problem with column generation algorithm
 # =============================================================================
 m, V_generated, λ_generated, house_choice = solve_ia_generation(d)
 
@@ -133,16 +133,18 @@ println("Shortage = ", sum(sum(d.demands)) - getobjectivevalue(m1))
 # formulation
 
 # =============================================================================
-# Solve problem
+# Solve problem with column generation algorithm
 # =============================================================================
 tic()
 m, V_generated, λ_generated, house_choice = solve_ia_generation(d)
 toc()
+# elapsed time: 2.031915379 seconds
 
 # =============================================================================
 # Look at solution
 # =============================================================================
 println(getobjectivevalue(m))
+# 25.63353800440406
 println("Shortage = ", sum(sum(d.demands)) - getobjectivevalue(m))
 # Shortage = 16616.0
 # integer! ... and the same as the solution to the MIP
