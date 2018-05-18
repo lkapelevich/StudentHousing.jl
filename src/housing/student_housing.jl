@@ -203,13 +203,14 @@ market_data = StudentHousing.MarketData(nbedrooms_range,
     prices_range_pp, area_ranges)
 
 problem_data = StudentHousingData(market_data, nhouses = 50, budget = budget,
-    demand_distribution = Uniform(0.0, 100.0), nstages = 1, nnoises = 1)
+    demand_distribution = Uniform(0.0, 100.0), nstages = 10, nnoises = 10)
 
 m_multi_stage = multistagemodel(problem_data)
 solve(m_multi_stage, max_iterations = 5)
 
 # converges extremely quickly... and Benders vs Lagrangian bounds v close
-# IP: 148.660K LP: 148.651K
+# IP: 164.660K LP: 164.592K
 
-# Delve into more detail in regards to column generation with constraint
-# generation
+# r = simulate(m_multi_stage, 50, [:investment, :assignment, :shortage])
+# julia> mean(r[i][:objective] for i = 1:50)
+# 164633.34
