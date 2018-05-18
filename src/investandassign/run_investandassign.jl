@@ -5,21 +5,26 @@ srand(32)
 # =============================================================================
 # Data
 # =============================================================================
-nhouses = 100
+nhouses = 50
 nbedrooms_range = collect(1:3)
-nbedrooms_frequency = Weights([0.5, 0.5])
+nbedrooms_frequency = Weights([0.5, 0.25, 0.25])
 nbathrooms_range = collect(1:2)
 nbathrooms_frequency = Weights([0.5, 0.5])
 prices_range_pp = [800.0, 1000.0]
-area_ranges = [0.0]
+area_ranges = [0.0, 800.0]
 market_data = StudentHousing.MarketData(nbedrooms_range, nbedrooms_frequency,
     nbathrooms_range, nbathrooms_frequency, prices_range_pp, area_ranges)
-budget = 1e5
-problem_data = StudentHousingData(market_data, nhouses = nhouses, budget = budget,
-                  demand_distribution = Uniform(0.9, 1.1), easy=false)
-
-d = problem_data
+budget = 1e3
+d = StudentHousingData(market_data, nhouses = nhouses, budget = budget,
+                  demand_distribution = Uniform(0.0, 10.0), easy=false)
 nhouses = length(d.houses)
+
+# =============================================================================
+# Solve with direct formulation
+# =============================================================================
+m1 = StudentHousing.ia_model(d)
+@assert solve(m1, relaxation=true) == :Optimal
+getobjectivevalue(m1)
 
 # =============================================================================
 # Solve problem

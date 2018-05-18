@@ -140,14 +140,14 @@ function bedrooms_scale(i::Int)
     nbedrooms_range, nbedrooms_frequency
 end
 
-
-nbathrooms_range = collect(1:3)
-nbathrooms_frequency = Weights([0.5; 0.4; 0.1])
+nbathrooms_range = collect(1:2)
+nbathrooms_frequency = Weights([0.75; 0.25])
 prices_range_pp = [800.0, 1000.0]
 area_ranges = [0.0, 700.0, 850.0]
 budget = 1000.0
 
 for i = 1:2
+    srand(1)
     nbedrooms_range, nbedrooms_frequency = bedrooms_scale(i)
     @time market_data = StudentHousing.MarketData(nbedrooms_range,
         nbedrooms_frequency, nbathrooms_range, nbathrooms_frequency,
@@ -171,18 +171,18 @@ end
 # Using 9 patterns, solving MIP:
 # 0.000444 seconds (3.66 k allocations: 209.766 KiB)
 # elapsed time: 0.016997735 seconds
-# MIP objective = 309.0
-# LP objective = 308.39493853636816
+# MIP objective = 474.0
+# LP objective = 473.5585096078103
 # 0.000005 seconds (1 allocation: 64 bytes)
 # 1.222919 seconds (1.05 M allocations: 1.084 GiB, 25.72% gc time)
 # Using 329 patterns, solving MIP:
 # 0.011981 seconds (78.52 k allocations: 4.183 MiB)
 # elapsed time: 0.045735724 seconds
-# MIP objective = 16068.0
-# LP objective = 16067.796766960571
+# MIP objective = 16616.0
+# LP objective = 16615.10611513201
 
 # 0.000017 seconds (1 allocation: 64 bytes)
-# too long outside of MIP, 2^54 potential patterns to process
+# too long outside of MIP on PC, 2^48 potential patterns to process
 
 # Even when 2^ncharacteristics is too large to be stored, the
 # number of legal patterns we get is only in the hundrends, and the MIP takes
@@ -195,20 +195,15 @@ end
 # Multistage, medium model.
 # ==============================================================================
 srand(1)
-nbedrooms_range = collect(1:3)
-nbedrooms_frequency = Weights([0.5, 0.5, 0.25])
-nbathrooms_range = collect(1:2)
-nbathrooms_frequency = Weights([0.5; 0.5])
-prices_range_pp = [800.0, 1000.0]
-area_ranges = [0.0, 700.0]
+nbedrooms_range = collect(1:2)
+nbedrooms_frequency = Weights([0.75, 0.25])
+
 market_data = StudentHousing.MarketData(nbedrooms_range,
     nbedrooms_frequency, nbathrooms_range, nbathrooms_frequency,
     prices_range_pp, area_ranges)
 
-budget = 1000.0
-
-problem_data = StudentHousingData(market_data, nhouses = 100, budget = budget,
-    demand_distribution = Uniform(0.0, 100.0), nstages = 10, nnoises = 10)
+problem_data = StudentHousingData(market_data, nhouses = 50, budget = budget,
+    demand_distribution = Uniform(0.0, 100.0), nstages = 1, nnoises = 1)
 
 m_multi_stage = multistagemodel(problem_data)
 solve(m_multi_stage, max_iterations = 5)

@@ -69,7 +69,7 @@ function multistagemodel(d::StudentHousingData)
 
     m = SDDPModel(stages = d.nstages,
             objective_bound = 0.0,
-            sense=:Min,
+            sense = :Min,
             solver = GurobiSolver(OutputFlag=0)) do sp, stage
 
         @binarystate(sp, 0 <= investment[1:nhouses] <= 1,
@@ -81,7 +81,7 @@ function multistagemodel(d::StudentHousingData)
         end)
 
         if stage == 1
-            @constraint(sp, [p = 1:npatterns], shortage[p] + sum(house_fits_pattern(i, p, d) * assignment[i, p] for i = 1:nhouses) <= demands[p, 1, 1])
+            @constraint(sp, [p = 1:npatterns], shortage[p] + sum(house_fits_pattern(i, p, d) * assignment[i, p] for i = 1:nhouses) == demands[p, 1, 1])
         else
             for p = 1:npatterns
                 @rhsnoise(sp, D = demands[p, :, stage],

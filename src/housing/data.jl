@@ -158,6 +158,28 @@ function pattern_is_legal(p::Vector{Int}, all_characteristics::Vector{Characteri
     true
 end
 
+# function make_all_patterns(all_characteristics::Vector{Characteristic})
+#     C = length(all_characteristics)
+#     C > 63 && error("Too many characteristics.")
+#     max_patterns = 2^C
+#     # Divide patterns to process evenly among processors
+#     all_patterns = SharedArray{Vector{Int}}(max_patterns)
+#     procs = collect(1:nprocs())
+#     breakpoints = [linspace(1, max_patterns, i) for i = 1:nprocs()]
+#     all_patterns = Vector{Int}[]
+#     p = zeros(Int, length(all_characteristics))
+#     while true
+#         addone!(p)
+#         if pattern_is_legal(p, all_characteristics)
+#             push!(all_patterns, copy(p))
+#         end
+#         if all(p .== 1)
+#             break
+#         end
+#     end
+#     all_patterns
+# end
+
 function make_all_patterns(all_characteristics::Vector{Characteristic})
     all_patterns = Vector{Int}[]
     p = zeros(Int, length(all_characteristics))
