@@ -1,4 +1,5 @@
 using StudentHousing, StatsBase, Distributions, JuMP, Gurobi
+include("utils.jl")
 
 srand(32)
 
@@ -133,47 +134,47 @@ println("Shortage = ", sum(sum(d.demands)) - getobjectivevalue(m1))
 # formulation
 
 # =============================================================================
-# Solve problem with column generation algorithm
+# Solve problem with column generation algorithm, house subproblems
 # =============================================================================
 tic()
-m, V_generated, λ_generated, house_choice = solve_ia_generation(d)
+m2, V_generated, λ_generated, house_choice = solve_ia_generation(d)
 toc()
 # elapsed time: 2.031915379 seconds
 
 # =============================================================================
 # Look at solution
 # =============================================================================
-println(getobjectivevalue(m))
+println(getobjectivevalue(m2))
 # 25.63353800440406
-println("Shortage = ", sum(sum(d.demands)) - getobjectivevalue(m))
-# Shortage = 16616.0
-# integer! ... and the same as the solution to the MIP
+println("Shortage = ", sum(sum(d.demands)) - getobjectivevalue(m2))
+# Shortage = 16615.366461995596
+# a little stronger than the LP relaxation
 
-# If not integer...
-# for i = 1:nhouses
-#     setcategory(m[:λ][i], :Bin)
-# end
-# for λnew in λ_generated
-#     setcategory(λnew, :Bin)
-# end
-# solve(m)
-# getobjectivevalue(m)
+# Not integer, so get integer solution with existing columns
+r = recover_integer_soln(m2, d)
+println("Integer shortage = ", sum(sum(d.demands)) - sum(sum(r)))
+# Integer shortage = 16616.0
+# ... whichi matches the MIP solution
 
-# # In case one of our initial columns was in the optimal basis
-# results = zeros(nhouses, length(d.patterns_allow))
-# for k = 1:nhouses
-#     if getvalue(m[:λ][k]) ≈ 1.0
-#         results[k, StudentHousing.house_allowedby(k, d)[1]] = 1.0
-#     end
-# end
-# # Check all the other columns we added
-# for k = 1:length(V_generated)
-#     if getvalue(λ_generated[k]) ≈ 1.0
-#         # Find the assignment that we picked for our house
-#         patterns = find(V_generated[k] .≈ 1.0)
-#         # Check the house index
-#         h = house_choice[k]
-#         # Mark the assignment
-#         results[h, patterns] .= 1.0
-#     end
-# end
+# =============================================================================
+# Solve problem with column generation algorithm, pattern subproblems
+# =============================================================================
+tic()
+m3, U_generated, λ_generated, pattern_choice = solve_ia_p_generation(d)
+toc()
+# elapsed time: 15.290560206 seconds
+
+# =============================================================================
+# Look at solution
+# =============================================================================
+println(getobjectivevalue(m3))
+# 25.81671609417941
+println("Shortage = ", sum(sum(d.demands)) - getobjectivevalue(m3))
+# Shortage = 16615.18328390582
+# ... this is equal to the LP relaxation
+
+# Not integer, so get integer solution with existing columns
+r = recover_integer_soln_p(m3, d)
+println("Integer shortage = ", sum(sum(d.demands)) - sum(sum(r)))
+# Integer shortage = 16616.0
+# ... whichi matches the MIP solution
