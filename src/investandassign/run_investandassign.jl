@@ -46,11 +46,10 @@ for λnew in λ_generated
     setcategory(λnew, :Bin)
 end
 solve(m)
-getobjectivevalue(m)
 
 # Recover the solution
 
-# In case one of our initial columns was in the optimal basis
+# In case one of our initial columns were in the optimal basis
 results = zeros(nhouses, length(d.patterns_allow))
 for k = 1:nhouses
     if getvalue(m[:λ][k]) ≈ 1.0
@@ -103,7 +102,7 @@ for i = 1:nhouses
 end
 
 # =============================================================================
-# Compare with original single-stage MIP
+# Compare with original single-stage MIP, 329 pattern example
 # =============================================================================
 nbedrooms_range = collect(1:2)
 nbedrooms_frequency = Weights([0.75, 0.25])
@@ -154,13 +153,40 @@ println("Shortage = ", sum(sum(d.demands)) - getobjectivevalue(m2))
 r = recover_integer_soln(m2, d)
 println("Integer shortage = ", sum(sum(d.demands)) - sum(sum(r)))
 # Integer shortage = 16616.0
-# ... whichi matches the MIP solution
+# ... which matches the MIP solution
 
 # =============================================================================
 # Solve problem with column generation algorithm, pattern subproblems
 # =============================================================================
 tic()
 m3, U_generated, λ_generated, pattern_choice = solve_ia_p_generation(d)
+toc()
+# elapsed time: 15.290560206 seconds
+
+# =============================================================================
+# Look at solution
+# =============================================================================
+println(getobjectivevalue(m3))
+# 25.81671609417941
+println("Shortage = ", sum(sum(d.demands)) - getobjectivevalue(m3))
+# Shortage = 16615.18328390582
+# ... this is equal to the LP relaxation
+
+# Not integer, so get integer solution with existing columns
+r = recover_integer_soln_p(m3, d)
+println("Integer shortage = ", sum(sum(d.demands)) - sum(sum(r)))
+# Integer shortage = 16616.0
+# ... whichi matches the MIP solution
+
+# =============================================================================
+# Solve problem with column generation algorithm, pattern subproblems
+# without looking for best reduced cost, stop @ any positive reduced cost
+# =============================================================================
+# srand(32)
+# d = StudentHousingData(market_data, nhouses = 2, budget = budget,
+#                   demand_distribution = Uniform(0.0, 100.0))
+tic()
+m3, U_generated, λ_generated, pattern_choice = solve_ia_p_generation(d, true)
 toc()
 # elapsed time: 15.290560206 seconds
 

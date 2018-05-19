@@ -97,12 +97,12 @@ function solve_ia_p_generation(d::StudentHousingData, suboptimal_rc::Bool=false)
                 best_p = p
             end
             # If we don't care about the optimal column
-            if suboptimal_rc
+            if suboptimal_rc && col_rc > 1e-4
                 # ... and we found one with positive reduced cost
-                if col_rc > 1e-4
-                    # just add the one we found
-                    break
-                end
+                best_rc = col_rc
+                best_sp = sp
+                best_p = p
+                break
             end
         end
 
