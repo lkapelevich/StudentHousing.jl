@@ -16,7 +16,7 @@ include("housing/data.jl")
 include("housing/model.jl")
 include("GAP/gap_h.jl")
 include("GAP/gap_p.jl")
-include("investandassign/h_investandassign.jl")
-include("investandassign/p_investandassign.jl")
+include("investandassign/investandassign_h.jl")
+include("investandassign/investandassign_p.jl")
 
 end # module
