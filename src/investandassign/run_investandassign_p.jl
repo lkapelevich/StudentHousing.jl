@@ -23,6 +23,9 @@ m3, U_generated, λ_generated, pattern_choice = solve_ia_p_generation(d)
 toc()
 # elapsed time: 15.290560206 seconds
 
+# When we solved the same problem with one subproblem for each house, the solving
+# time was around 2 seconds.
+
 # =============================================================================
 # Look at solution
 # =============================================================================
@@ -31,6 +34,9 @@ println(getobjectivevalue(m3))
 println("Shortage = ", sum(sum(d.demands)) - getobjectivevalue(m3))
 # Shortage = 16615.18328390582
 # ... this is equal to the LP relaxation
+
+# When we solved the same problem with one subproblem for each house, the LP
+# bound was 16615.366.
 
 # Not integer, so get integer solution with existing columns
 r = recover_integer_soln_p(m3, d)
